@@ -1,20 +1,25 @@
-name: Build Test
+name: Build Firmware
 
 on:
   push:
     branches: [applo87h]
+    paths:
+      - 'keyboards/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
+    inputs:
+      keyboard:
+        description: 'Keyboard path (e.g. mykeyboard/rev1)'
+        required: true
+        default: ''
+      keymap:
+        description: 'Keymap name'
+        required: true
+        default: 'default'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - keyboard: onekey/stm32f072
-            keymap: default
-
     steps:
       - name: Checkout QMK
         uses: actions/checkout@v4
@@ -25,20 +30,35 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi avr-gcc avr-binutils avr-libc python3-pip
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
+            avr-gcc avr-binutils avr-libc python3-pip
           pip3 install qmk
-          qmk --version
+          qmk --version || true
+
+      - name: Determine build target
+        id: target
+        run: |
+          if [ -n "${{ github.event.inputs.keyboard }}" ]; then
+            echo "keyboard=${{ github.event.inputs.keyboard }}" >> $GITHUB_OUTPUT
+            echo "keymap=${{ github.event.inputs.keymap }}" >> $GITHUB_OUTPUT
+          else
+            # Auto-detect: find first keyboard directory
+            KB=$(find keyboards -name "keyboard.json" -o -name "rules.mk" | head -1 | sed 's|/keyboard.json||;s|/rules.mk||')
+            echo "keyboard=$KB" >> $GITHUB_OUTPUT
+            echo "keymap=default" >> $GITHUB_OUTPUT
+          fi
+          echo "Building: ${{ steps.target.outputs.keyboard }}:${{ steps.target.outputs.keymap }}"
 
       - name: Build firmware
         run: |
-          make ${{ matrix.keyboard }}:${{ matrix.keymap }} COLOR=false
+          make ${{ steps.target.outputs.keyboard }}:${{ steps.target.outputs.keymap }} COLOR=false
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.keyboard }}_${{ matrix.keymap }}
+          name: firmware
           path: |
             *.bin
             *.hex
             *.uf2
-          if-no-files-found: warn
+          if-no-files-found: error

@@ -1,7 +1,9 @@
 # ── MCU / Platform ──────────────────────────────────────────────
 # AT32F405RC (LQFP64, 256KB Flash, 96KB SRAM)
 # ChibiOS-Contrib AT32F402_405 HAL port
-MCU          = AT32F405
+# Use AT32F415 as QMK-recognized MCU entry (same AT32F402_405 series),
+# then override linker script for the AT32F405xC (256KB Flash).
+MCU          = AT32F415
 MCU_FAMILY   = AT32
 MCU_SERIES   = AT32F402_405
 MCU_LDSCRIPT = AT32F405xC

@@ -18,31 +18,37 @@ jobs:
         keymap: [default, via]
 
     steps:
-      - name: Checkout QMK
+      - name: Checkout QMK (without submodules)
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
           fetch-depth: 1
 
-      - name: Install dependencies
+      - name: Install ARM toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
-            avr-gcc avr-binutils avr-libc \
-            dfu-programmer dfu-util \
-            python3 python3-pip python3-venv
-          pip3 install qmk
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi
+
+      - name: Setup ChibiOS (qmk-master with AT32 support)
+        run: |
+          rm -rf lib/chibios lib/chibios-contrib
+          git clone --depth 1 -b qmk-master https://github.com/qmk/ChibiOS.git lib/chibios
+          git clone --depth 1 -b qmk-master https://github.com/qmk/ChibiOS-Contrib.git lib/chibios-contrib
+          git clone --depth 1 https://github.com/qmk/googletest.git lib/googletest
+          git clone --depth 1 https://github.com/qmk/printf.git lib/printf
+          echo "ChibiOS-Contrib AT32 port check:"
+          ls lib/chibios-contrib/os/hal/ports/AT32/ || echo "AT32 NOT FOUND!"
 
       - name: Build firmware
         run: |
-          make applo87h_qmk:${{ matrix.keymap }}:production COLOR=false
+          make applo87h_qmk:${{ matrix.keymap }} COLOR=false
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: applo87h_qmk_${{ matrix.keymap }}
           path: |
-            *.bin
-            *.hex
-            *.uf2
+            applo87h_qmk_*.bin
+            applo87h_qmk_*.hex
+            applo87h_qmk_*.uf2
           if-no-files-found: error

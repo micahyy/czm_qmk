@@ -34,6 +34,9 @@
 #define BOOTMAGIC_LITE_ROW    0
 #define BOOTMAGIC_LITE_COLUMN 0
 
+// ── USB: use OTGHS (USBD2) for 480Mbps High Speed ──
+#define USB_DRIVER USBD2
+
 // ── VIA / Dynamic Keymap EEPROM ──
 // AT32F405 emulated EEPROM via wear-leveling in Flash.
 // 4 layers × 87 keys × 2 bytes = 696 bytes for keymaps.

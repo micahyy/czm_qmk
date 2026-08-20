@@ -9,11 +9,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_P0,                 KC_PDOT, KC_PENT
     ),
     [1] = LAYOUT_numberpad_5x4(
-        KC_TRNS, KC_TRNS, MO(2),   RGB_VAI,
-        RGB_TOG, RGB_SAI, KC_TRNS,
-        RGB_HUD, KC_TRNS, RGB_HUI, RGB_VAD,
-        KC_TRNS, RGB_SAD, KC_TRNS,
-        RGB_MOD,          KC_TRNS, KC_TRNS
+        KC_TRNS,        KC_TRNS,     MO(2),          RGB_VAI,
+        RGB_TOG,        RGB_SAI,     KC_TRNS,
+        RGB_HUD,        KC_TRNS,     RGB_HUI,        RGB_VAD,
+        KC_TRNS,        RGB_SAD,     KC_TRNS,
+        RGB_MODE_FORWARD,           KC_TRNS,        KC_TRNS
     ),
     [2] = LAYOUT_numberpad_5x4(
         KC_TRNS, KC_TRNS, KC_TRNS, NK_TOGG,

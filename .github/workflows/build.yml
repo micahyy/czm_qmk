@@ -39,25 +39,35 @@ jobs:
         id: target
         run: |
           if [ -n "${{ github.event.inputs.keyboard }}" ]; then
-            echo "keyboard=${{ github.event.inputs.keyboard }}" >> $GITHUB_OUTPUT
-            echo "keymap=${{ github.event.inputs.keymap }}" >> $GITHUB_OUTPUT
+            KB="${{ github.event.inputs.keyboard }}"
+            KM="${{ github.event.inputs.keymap }}"
           else
             KB=$(find keyboards -name "keyboard.json" | head -1 | xargs dirname | sed 's|^keyboards/||')
-            echo "keyboard=$KB" >> $GITHUB_OUTPUT
-            echo "keymap=default" >> $GITHUB_OUTPUT
+            KM="default"
           fi
-          echo "Building: ${{ steps.target.outputs.keyboard }}:${{ steps.target.outputs.keymap }}"
+          SAFE_NAME=$(echo "$KB" | tr '/' '_')
+          echo "keyboard=$KB" >> $GITHUB_OUTPUT
+          echo "keymap=$KM" >> $GITHUB_OUTPUT
+          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
+          echo "Building: $KB:$KM"
 
       - name: Build firmware
         run: |
           make ${{ steps.target.outputs.keyboard }}:${{ steps.target.outputs.keymap }} COLOR=false
 
+      - name: List build outputs
+        run: |
+          echo "=== Root firmware files ==="
+          ls -la *.bin *.hex *.uf2 2>/dev/null || echo "None in root"
+          echo "=== .build firmware files ==="
+          ls -la .build/*.bin .build/*.hex .build/*.uf2 2>/dev/null || echo "None in .build"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.target.outputs.keyboard }}_${{ steps.target.outputs.keymap }}
+          name: ${{ steps.target.outputs.safe_name }}_${{ steps.target.outputs.keymap }}
           path: |
-            .build/*.bin
-            .build/*.hex
-            .build/*.uf2
+            *.bin
+            *.hex
+            *.uf2
           if-no-files-found: error

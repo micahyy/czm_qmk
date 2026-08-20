@@ -39,5 +39,6 @@
 // 4 layers × 87 keys × 2 bytes = 696 bytes for keymaps.
 // Reserve 2048 bytes total, leaving room for macros and VIA config.
 #define WEAR_LEVELING_LOGICAL_SIZE 2048
+#define WEAR_LEVELING_BACKING_SIZE 4096
 #define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR 2047
 #define DYNAMIC_KEYMAP_LAYER_COUNT 4

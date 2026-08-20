@@ -1,32 +1,17 @@
 /*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-    ChibiOS - Copyright (C) 2023..2026 HorrorTroll
-    ChibiOS - Copyright (C) 2023..2026 Zhaqian
-    ChibiOS - Copyright (C) 2024..2026 Maxjta
+    ChibiOS - Copyright (C) 2023..2025 HorrorTroll
+    ChibiOS - Copyright (C) 2023..2025 Zhaqian
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
 
         http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
 */
 
 #ifndef _BOARD_H_
 #define _BOARD_H_
-
-/*===========================================================================*/
-/* Driver constants.                                                         */
-/*===========================================================================*/
-
-/*
- * Setup for SLK Applo87H — AT32F405RCT7 (LQFP64).
- */
 
 /*
  * Board identifier.
@@ -36,7 +21,6 @@
 
 /*
  * Board oscillators-related settings.
- * 12 MHz HEXT crystal on PF0/PF1; 32.768 kHz LEXT on PC14/PC15.
  */
 #if !defined(AT32_LEXTCLK)
 #define AT32_LEXTCLK                32768
@@ -47,26 +31,18 @@
 #endif
 
 /*
- * MCU type: AT32F405RC = LQFP64, 256KB Flash, High Density.
+ * MCU type: AT32F405RC = LQFP64, 256KB Flash.
  */
 #define AT32F405RC
 
 /*
- * GPIO availability for LQFP64 package.
+ * GPIO settings.
  */
+#if defined(AT32F405KB) || defined(AT32F405KC) || defined(AT32F405CB) || \
+    defined(AT32F405CC) || defined(AT32F405RB) || defined(AT32F405RC)
 #define AT32_HAS_GPIOC              TRUE
-#define AT32_HAS_GPIOD              TRUE
 #define AT32_HAS_GPIOF              TRUE
-
-/*
- * CRITICAL: Enable OTG2 (OTGHS) High-Speed on-chip PHY.
- *
- * On AT32F405 this macro tells the OTGv1 USB LLD to:
- *   - call crmEnableOTG_HS() (OTGHS clock path)
- *   - NOT set GUSBCFG.PHYSEL (select on-chip HS PHY)
- *   - set DCFG.DEVSPD = HS (480 Mbps) when AT32_USE_USB_OTG2_HS=TRUE
- */
-#define BOARD_OTG2_USES_ULPI
+#endif
 
 /*
  * IO pins assignments.
@@ -102,6 +78,8 @@
 #define GPIOB_PIN11                 11U
 #define GPIOB_PIN12                 12U
 #define GPIOB_PIN13                 13U
+#define GPIOB_PIN14                 14U
+#define GPIOB_PIN15                 15U
 
 #define GPIOC_PIN0                  0U
 #define GPIOC_PIN1                  1U
@@ -120,87 +98,12 @@
 #define GPIOC_PIN14                 14U
 #define GPIOC_PIN15                 15U
 
-/* Port D: only PD2 is bonded on LQFP64 (Scroll Lock LED). */
+#define GPIOD_PIN0                  0U
+#define GPIOD_PIN1                  1U
 #define GPIOD_PIN2                  2U
 
-/* Port F: PF0/PF1 = HEXT crystal, PF11 = BOOT0. */
-#define GPIOF_HEXT_IN               0U
-#define GPIOF_HEXT_OUT              1U
-#define GPIOF_PIN4                  4U
-#define GPIOF_PIN5                  5U
-#define GPIOF_PIN6                  6U
-#define GPIOF_PIN7                  7U
-#define GPIOF_PIN11                 11U
-
-/*===========================================================================*/
-/* Driver pre-compile time settings.                                         */
-/*===========================================================================*/
-
-/*===========================================================================*/
-/* Derived constants and error checks.                                       */
-/*===========================================================================*/
-
-/*===========================================================================*/
-/* Driver data structures and types.                                         */
-/*===========================================================================*/
-
-/*===========================================================================*/
-/* Driver macros.                                                            */
-/*===========================================================================*/
-
-/*
- * I/O ports initial setup.
- *
- * Configuration digit values:
- *   0 - Analog input
- *   4 - Digital input (floating)
- *   8 - Digital input with pull-up/pull-down
- */
-
-/*
- * Port A: all inputs with pull-up.
- * PA13/PA14 (SWD) are reconfigured by hardware after reset.
- */
-#define VAL_GPIOACFGLR          0x88888888      /*  PA7...PA0 */
-#define VAL_GPIOACFGHR          0x88888888      /* PA15...PA8 */
-#define VAL_GPIOAODT            0xFFFFFFFF
-
-/*
- * Port B: all inputs with pull-up.
- * PB13 = OTGHS VBUS sense (board pull-up).
- * PB14/PB15 are not bonded on AT32F405 LQFP64; writes are harmless.
- */
-#define VAL_GPIOBCFGLR          0x88888888      /*  PB7...PB0 */
-#define VAL_GPIOBCFGHR          0x88888888      /* PB15...PB8 */
-#define VAL_GPIOBODT            0xFFFFFFFF
-
-/*
- * Port C: all inputs with pull-up.
- * PC14/PC15 = LEXT (32.768 kHz), handled by ERTC hardware.
- */
-#define VAL_GPIOCCFGLR          0x88888888      /*  PC7...PC0 */
-#define VAL_GPIOCCFGHR          0x88888888      /* PC15...PC8 */
-#define VAL_GPIOCODT            0xFFFFFFFF
-
-/*
- * Port D: only PD2 is bonded (Scroll Lock LED, push-pull output).
- * PD0/PD1 do not exist on LQFP64; set to analog.
- */
-#define VAL_GPIODCFGLR          0x88888800      /*  PD7...PD0: PD0/1=analog, PD2..7=pull-up */
-#define VAL_GPIODCFGHR          0x88888888      /* PD15...PD8 */
-#define VAL_GPIODODT            0xFFFFFFFF
-
-/*
- * Port F: PF0/PF1 = HEXT crystal (analog mode).
- * PF4-PF7 = pull-up inputs, PF11 = BOOT0.
- */
-#define VAL_GPIOFCFGLR          0x88880000      /*  PF7...PF0: PF0/1=analog, PF4..7=pull-up */
-#define VAL_GPIOFCFGHR          0x88888888      /* PF15...PF8 */
-#define VAL_GPIOFODT            0xFFFFFFFF
-
-/*===========================================================================*/
-/* External declarations.                                                    */
-/*===========================================================================*/
+#define GPIOF_PIN0                  0U
+#define GPIOF_PIN1                  1U
 
 #if !defined(_FROM_ASM_)
 #ifdef __cplusplus
@@ -211,5 +114,30 @@ extern "C" {
 }
 #endif
 #endif /* _FROM_ASM_ */
+
+/*
+ * GPIO port configuration.
+ * All pins set to input pull-up/analog (safe defaults).
+ * QMK configures matrix pins at runtime.
+ */
+#define VAL_GPIOAODT            0xFFFFFFFF
+#define VAL_GPIOACFGLR          0x88888888
+#define VAL_GPIOACFGHR          0x88888888
+
+#define VAL_GPIOBODT            0xFFFFFFFF
+#define VAL_GPIOBCFGLR          0x88888888
+#define VAL_GPIOBCFGHR          0x88888888
+
+#define VAL_GPIOCODT            0xFFFFFFFF
+#define VAL_GPIOCCFGLR          0x88888888
+#define VAL_GPIOCCFGHR          0x88888888
+
+#define VAL_GPIODODT            0xFFFFFFFF
+#define VAL_GPIODCFGLR          0x88888888
+#define VAL_GPIODCFGHR          0x88888888
+
+#define VAL_GPIOFODT            0xFFFFFFFF
+#define VAL_GPIOFCFGLR          0x88880000
+#define VAL_GPIOFCFGHR          0x88888888
 
 #endif /* _BOARD_H_ */

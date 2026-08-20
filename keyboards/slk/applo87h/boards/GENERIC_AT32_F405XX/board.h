@@ -24,6 +24,9 @@
 
 #define AT32F405RC
 
+/* AT32F405 OTGHS uses the on-chip high-speed PHY; this macro selects the HS clock/path in ChibiOS. */
+#define BOARD_OTG2_USES_ULPI
+
 /*
  * IO pin assignments. Values are only used by VAL_* macros below.
  */

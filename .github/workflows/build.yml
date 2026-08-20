@@ -1,0 +1,48 @@
+name: Build Applo87H Firmware
+
+on:
+  push:
+    branches: [applo87h]
+    paths:
+      - 'keyboards/applo87h_qmk/**'
+      - 'platforms/chibios/mcu_selection.mk'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        keymap: [default, via]
+
+    steps:
+      - name: Checkout QMK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
+            avr-gcc avr-binutils avr-libc \
+            dfu-programmer dfu-util \
+            python3 python3-pip python3-venv
+          pip3 install qmk
+
+      - name: Build firmware
+        run: |
+          make applo87h_qmk:${{ matrix.keymap }}:production COLOR=false
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: applo87h_qmk_${{ matrix.keymap }}
+          path: |
+            *.bin
+            *.hex
+            *.uf2
+          if-no-files-found: error

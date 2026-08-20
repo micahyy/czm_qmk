@@ -31,7 +31,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
-            avr-gcc avr-binutils avr-libc python3-pip
+            gcc-avr binutils-avr avr-libc python3-pip
           pip3 install qmk
           qmk --version || true
 
@@ -42,8 +42,7 @@ jobs:
             echo "keyboard=${{ github.event.inputs.keyboard }}" >> $GITHUB_OUTPUT
             echo "keymap=${{ github.event.inputs.keymap }}" >> $GITHUB_OUTPUT
           else
-            # Auto-detect: find first keyboard directory
-            KB=$(find keyboards -name "keyboard.json" -o -name "rules.mk" | head -1 | sed 's|/keyboard.json||;s|/rules.mk||')
+            KB=$(find keyboards -name "keyboard.json" | head -1 | xargs dirname | sed 's|^keyboards/||')
             echo "keyboard=$KB" >> $GITHUB_OUTPUT
             echo "keymap=default" >> $GITHUB_OUTPUT
           fi

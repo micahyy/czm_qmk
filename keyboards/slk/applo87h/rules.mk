@@ -18,3 +18,7 @@ DEBOUNCE_TYPE    = sym_eager_pk
 SPACE_CADET_ENABLE   = no
 GRAVE_ESC_ENABLE     = no
 MAGIC_ENABLE         = no
+
+# EEPROM emulation via Flash wear-leveling (AT32 has no hardware EEPROM)
+EEPROM_DRIVER = wear_leveling
+WEAR_LEVELING_DRIVER = embedded_flash

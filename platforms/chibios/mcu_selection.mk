@@ -844,32 +844,6 @@ ifneq ($(findstring WB32FQ95, $(MCU)),)
   WB32_BOOTLOADER_ADDRESS ?= 0x1FFFE000
 endif
 
-ifneq ($(findstring AT32F405, $(MCU)),)
-  # Cortex version
-  MCU = cortex-m4
-
-  # ARM version, CORTEX-M0/M1 are 6, CORTEX-M3/M4/M7 are 7
-  ARMV = 7
-
-  ## chip/board settings
-  MCU_FAMILY = AT32
-  MCU_SERIES = AT32F402_405
-
-  # Linker script to use
-  MCU_LDSCRIPT ?= AT32F405xC
-
-  # Startup code to use
-  MCU_STARTUP ?= at32f402
-
-  # Board
-  BOARD ?= GENERIC_AT32_F405XX
-
-  USE_FPU ?= no
-
-  # Bootloader address for AT32 DFU
-  AT32_BOOTLOADER_ADDRESS ?= 0x1FFF0000
-endif
-
 ifneq ($(findstring AT32F415, $(MCU)),)
   # Cortex version
   MCU = cortex-m4

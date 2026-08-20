@@ -1,4 +1,6 @@
 #include "quantum.h"
+#include "gpio.h"
+#include "wait.h"
 
 // WS2812 data line reset: hold B13 low for >280us to reset LED strip,
 // preventing random green LED on plug-in.

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       keyboard:
-        description: 'Keyboard path (e.g. mykeyboard/rev1)'
+        description: 'Keyboard path (e.g. czmao/ds17r6)'
         required: true
         default: ''
       keymap:
@@ -31,7 +31,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
-            gcc-avr binutils-avr avr-libc python3-pip
+            gcc-avr binutils-avr avr-libc dfu-util dfu-programmer python3-pip
           pip3 install qmk
           qmk --version || true
 
@@ -55,9 +55,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware
+          name: ${{ steps.target.outputs.keyboard }}_${{ steps.target.outputs.keymap }}
           path: |
-            *.bin
-            *.hex
-            *.uf2
+            .build/*.bin
+            .build/*.hex
+            .build/*.uf2
           if-no-files-found: error

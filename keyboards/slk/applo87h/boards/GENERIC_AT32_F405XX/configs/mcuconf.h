@@ -2,7 +2,6 @@
     ChibiOS - Copyright (C) 2006..2020 Giovanni Di Sirio
     ChibiOS - Copyright (C) 2023..2026 HorrorTroll
     ChibiOS - Copyright (C) 2023..2026 Zhaqian
-    ChibiOS - Copyright (C) 2024..2026 Maxjta
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,11 +22,12 @@
 /*
  * AT32F405 drivers configuration.
  *
- * IRQ priorities:
- * 15...0       Lowest...Highest.
+ * Clock tree (12 MHz HEXT crystal on the Applo87H):
+ *   HEXT = 12 MHz, MS=1, NS=72, FP=4 -> SYSCLK = 12*72/4 = 216 MHz
+ *   FU=18 -> PLLU = 864/18 = 48 MHz (USB)
  *
- * DMA priorities:
- * 0...3        Lowest...Highest.
+ * IRQ priorities: 15...0 Lowest...Highest.
+ * DMA priorities: 0...3 Lowest...Highest.
  */
 
 #define AT32F405_MCUCONF
@@ -39,17 +39,6 @@
 
 /*
  * HAL driver system settings.
- *
- * Clock tree (12 MHz HEXT crystal on the Applo87H):
- *
- *   HEXT = 12 MHz
- *   PLL input  = 12 MHz / MS(1) = 12 MHz
- *   PLL VCO    = 12 MHz × NS(72) = 864 MHz  (valid: 500–1000 MHz)
- *   SYSCLK     = 864 MHz / FP(4) = 216 MHz  (max for AT32F405)
- *   PLLU/USB   = 864 MHz / FU(18) = 48 MHz  (OTGHS PHY clock)
- *   HCLK/AHB   = 216 MHz
- *   PCLK1/APB1 = 108 MHz  (max 120 MHz)
- *   PCLK2/APB2 = 108 MHz
  */
 #define AT32_HICK_ENABLED                   TRUE
 #define AT32_LICK_ENABLED                   FALSE
@@ -68,9 +57,8 @@
 #define AT32_USB_CLOCK48_REQUIRED           TRUE
 #define AT32_PLLU_ENABLED                   TRUE
 #define AT32_PLLU_USB48_SEL                 AT32_PLLU_USB48_SEL_PLLU
-#define AT32_LDOOVSEL                       AT32_LDOOVSEL_LEV3
 #define AT32_CLKOUT_SEL                     AT32_CLKOUT_SEL_HICK
-#define AT32_CLKOUTDIV1                     AT32_CLKOUTDIV1_DIV1
+#define AT32_CLKOUTDIV                      AT32_CLKOUTDIV_DIV1
 #define AT32_ERTCSEL                        AT32_ERTCSEL_NOCLOCK
 #define AT32_PVM_ENABLE                     FALSE
 #define AT32_PVMSEL                         AT32_PVMSEL_LEV1
@@ -163,11 +151,10 @@
 
 /*
  * PWM driver system settings.
- * WS2812 underglow is on PC6 = TIM3_CH1 (PWM+DMA).
  */
 #define AT32_PWM_USE_TMR1                   FALSE
 #define AT32_PWM_USE_TMR2                   FALSE
-#define AT32_PWM_USE_TMR3                   TRUE
+#define AT32_PWM_USE_TMR3                   FALSE
 #define AT32_PWM_USE_TMR4                   FALSE
 #define AT32_PWM_USE_TMR5                   FALSE
 #define AT32_PWM_USE_TMR9                   FALSE
@@ -239,12 +226,9 @@
 /*
  * USB driver system settings.
  *
- * OTG1 (OTGFS on PA11/PA12) is disabled.
  * OTG2 (OTGHS dedicated D+/D- with on-chip HS PHY) is enabled.
- *
- * BOARD_OTG2_USES_ULPI is defined in board.h to select the HS clock/pad
- * path; AT32_USE_USB_OTG2_HS=TRUE makes DCFG report 480 Mbps HS.
- * Together these give USB 2.0 High Speed with bInterval=1 = 125 µs = 8000 Hz.
+ * BOARD_OTG2_USES_ULPI in board.h selects the HS path.
+ * AT32_USE_USB_OTG2_HS=TRUE reports 480 Mbps HS, bInterval=1 = 8000 Hz.
  */
 #define AT32_USB_USE_OTG1                   FALSE
 #define AT32_USB_USE_OTG2                   TRUE

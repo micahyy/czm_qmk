@@ -1,0 +1,18 @@
+{
+    "keyboard_name": "test_onekey",
+    "manufacturer": "test",
+    "url": "https://github.com/micahyy/qmk",
+    "maintainer": "micah",
+    "processor": "atmega32u4",
+    "bootloader": "atmel-dfu",
+    "matrix_pins": {
+        "cols": ["F1"],
+        "rows": ["F0"]
+    },
+    "diode_direction": "COL2ROW",
+    "layouts": {
+        "LAYOUT": {
+            "layout": [{"matrix": [0,0]}]
+        }
+    }
+}

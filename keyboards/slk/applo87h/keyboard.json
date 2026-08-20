@@ -45,7 +45,7 @@
     ]
   },
   "diode_direction": "COL2ROW",
-  "processor": "AT32F415",
+  "processor": "AT32F405",
   "bootloader": "at32-dfu",
   "board": "GENERIC_AT32_F405XX",
   "debounce": 1,

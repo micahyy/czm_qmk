@@ -1,8 +1,5 @@
 # AT32F405RC (LQFP64, 256KB Flash, 96KB SRAM, OTG-HS)
-# MCU=AT32F415 triggers QMK's mcu_selection block; the board-level
-# boards/GENERIC_AT32_F405XX/rules.mk then overrides MCU_SERIES to
-# AT32F402_405 (the correct HAL port with OTG2/HS registry).
-MCU          = AT32F415
+MCU          = AT32F405
 BOARD        = GENERIC_AT32_F405XX
 BOOTLOADER   = at32-dfu
 

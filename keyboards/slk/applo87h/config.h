@@ -1,12 +1,5 @@
 #pragma once
 
-// ── USB Device ──
-#define VENDOR_ID       0x534C  // "SL"
-#define PRODUCT_ID      0x0871
-#define DEVICE_VER      0x0100
-#define MANUFACTURER    SLK
-#define PRODUCT         Applo87H
-
 // ── Matrix ──
 #define MATRIX_ROWS     6
 #define MATRIX_COLS     17

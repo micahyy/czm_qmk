@@ -1,7 +1,7 @@
 {
     "keyboard_name": "SLK Applo87H",
     "manufacturer": "SLK",
-    "url": "",
+    "url": "https://github.com/micahyy/qmk",
     "maintainer": "micahyy",
     "usb": {
         "vid": "0x534C",

@@ -2,7 +2,7 @@ name: Build Firmware
 
 on:
   push:
-    branches: [applo87h]
+    branches: [main]
     paths:
       - 'keyboards/**'
       - '.github/workflows/build.yml'

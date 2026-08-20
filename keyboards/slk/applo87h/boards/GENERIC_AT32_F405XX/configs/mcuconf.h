@@ -88,11 +88,18 @@
 #define AT32_IRQ_TMR3_PRIORITY              7
 #define AT32_IRQ_TMR4_PRIORITY              7
 #define AT32_IRQ_TMR5_PRIORITY              7
+#define AT32_IRQ_TMR6_PRIORITY             7
+#define AT32_IRQ_TMR7_PRIORITY             7
+#define AT32_IRQ_TMR13_PRIORITY            7
+#define AT32_IRQ_TMR14_PRIORITY            7
 #define AT32_IRQ_USART1_PRIORITY            12
 #define AT32_IRQ_USART2_PRIORITY            12
 #define AT32_IRQ_USART3_PRIORITY            12
 #define AT32_IRQ_UART4_PRIORITY             12
 #define AT32_IRQ_UART5_PRIORITY             12
+#define AT32_IRQ_USART6_PRIORITY           12
+#define AT32_IRQ_UART7_PRIORITY            12
+#define AT32_IRQ_UART8_PRIORITY            12
 
 /*
  * ADC driver system settings.

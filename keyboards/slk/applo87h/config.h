@@ -33,3 +33,11 @@
 // ── Bootmagic (hold Esc while plugging in) ──
 #define BOOTMAGIC_LITE_ROW    0
 #define BOOTMAGIC_LITE_COLUMN 0
+
+// ── VIA / Dynamic Keymap EEPROM ──
+// AT32F405 emulated EEPROM via wear-leveling in Flash.
+// 4 layers × 87 keys × 2 bytes = 696 bytes for keymaps.
+// Reserve 2048 bytes total, leaving room for macros and VIA config.
+#define WEAR_LEVELING_LOGICAL_SIZE 2048
+#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR 2047
+#define DYNAMIC_KEYMAP_LAYER_COUNT 4

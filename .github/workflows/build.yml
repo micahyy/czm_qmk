@@ -18,26 +18,28 @@ jobs:
         keymap: [default, via]
 
     steps:
-      - name: Checkout QMK (without submodules)
+      - name: Checkout QMK
         uses: actions/checkout@v4
         with:
           submodules: false
           fetch-depth: 1
 
-      - name: Install ARM toolchain
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi python3-pip
+          pip3 install qmk
+          qmk --version
 
       - name: Setup ChibiOS (qmk-master with AT32 support)
         run: |
-          rm -rf lib/chibios lib/chibios-contrib
+          rm -rf lib/chibios lib/chibios-contrib lib/googletest lib/printf
           git clone --depth 1 -b qmk-master https://github.com/qmk/ChibiOS.git lib/chibios
           git clone --depth 1 -b qmk-master https://github.com/qmk/ChibiOS-Contrib.git lib/chibios-contrib
           git clone --depth 1 https://github.com/qmk/googletest.git lib/googletest
           git clone --depth 1 https://github.com/qmk/printf.git lib/printf
-          echo "ChibiOS-Contrib AT32 port check:"
-          ls lib/chibios-contrib/os/hal/ports/AT32/ || echo "AT32 NOT FOUND!"
+          echo "=== AT32 port check ==="
+          ls lib/chibios-contrib/os/hal/ports/AT32/AT32F402_405/
 
       - name: Build firmware
         run: |

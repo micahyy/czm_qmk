@@ -1,12 +1,6 @@
 # CZMAO AT87 — AT32F405RCT7 (LQFP64, 256KB Flash, 96KB SRAM, OTG-HS)
 # UF2 Bootloader: CherryUF2 at32f405ccu7_hs, app starts at 0x08004000
-# Use AT32F415 as QMK MCU entry (same AT32F402_405 HAL series),
-# then override series/ldscript/startup for AT32F405xC.
-MCU          = AT32F415
-MCU_FAMILY   = AT32
-MCU_SERIES   = AT32F402_405
-MCU_LDSCRIPT = AT32F405xC
-MCU_STARTUP  = at32f402
+MCU          = AT32F405
 BOARD        = GENERIC_AT32_F405XX
 BOOTLOADER   = at32-dfu
 

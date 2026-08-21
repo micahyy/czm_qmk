@@ -4,6 +4,9 @@ MCU          = AT32F405
 BOARD        = GENERIC_AT32_F405XX
 BOOTLOADER   = at32-dfu
 
+# AT32F405 HAL (hal_lld.h) lives in ChibiOS-Contrib; force-enable it.
+USE_CHIBIOS_CONTRIB = yes
+
 USE_FPU      = yes
 LTO_ENABLE   = yes
 

@@ -1,0 +1,92 @@
+name: Build UF2 Firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'keyboards/czmao/czmao_at87/**'
+      - '.github/workflows/build_uf2.yml'
+  workflow_dispatch:
+    inputs:
+      keymap:
+        description: 'Keymap name (default or via)'
+        required: true
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - via
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout QMK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
+            gcc-avr binutils-avr avr-libc dfu-util python3-pip
+          pip3 install qmk
+          qmk --version || true
+
+      - name: Build firmware
+        run: |
+          make czmao/czmao_at87:${{ github.event.inputs.keymap || 'default' }} COLOR=false
+
+      - name: Find and convert to UF2
+        run: |
+          set -e
+          KM="${{ github.event.inputs.keymap || 'default' }}"
+          echo "Keymap: $KM"
+          
+          # Find the built .bin file
+          BIN_FILE=$(find . -maxdepth 2 -name "czmao_at87_${KM}.bin" -o -name "czmao_at87_${KM}.hex" | head -1)
+          if [ -z "$BIN_FILE" ]; then
+            # Try .build directory
+            BIN_FILE=$(find .build -name "*.bin" 2>/dev/null | head -1)
+          fi
+          echo "Found binary: $BIN_FILE"
+          
+          # If we got a hex, convert to bin first
+          if echo "$BIN_FILE" | grep -q '\.hex$'; then
+            arm-none-eabi-objcopy -I ihex -O binary "$BIN_FILE" "${BIN_FILE%.hex}.bin"
+            BIN_FILE="${BIN_FILE%.hex}.bin"
+          fi
+          
+          # Copy to a clean name
+          cp "$BIN_FILE" "czmao_at87_${KM}.bin"
+          
+          # Convert to UF2 using the keyboard's script
+          python3 keyboards/czmao/czmao_at87/scripts/bin2uf2.py \
+            -a 0x08004000 \
+            -f 0xf35c900d \
+            "czmao_at87_${KM}.bin" \
+            "czmao_at87_${KM}.uf2"
+          
+          # Download bootloader
+          curl -sL -o cherryuf2_at32f405ccu7_hs.bin \
+            "https://raw.githubusercontent.com/zhaqian12/Cherryuf2/master/bootloader/v2.0/ArteryTek/cherryuf2_at32f405ccu7_hs.bin"
+          
+          # Merge bootloader + app for AT-Link production flashing
+          python3 keyboards/czmao/czmao_at87/scripts/merge_firmware.py \
+            cherryuf2_at32f405ccu7_hs.bin \
+            "czmao_at87_${KM}.bin" \
+            "czmao_at87_${KM}_production.bin"
+          
+          echo "=== Output files ==="
+          ls -la czmao_at87_${KM}.* cherryuf2_*.bin
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: czmao_at87_${{ github.event.inputs.keymap || 'default' }}_uf2
+          path: |
+            *.uf2
+            *.bin
+          if-no-files-found: error

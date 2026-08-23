@@ -1,36 +1,38 @@
-# Quantum Mechanical Keyboard Firmware
+# CZMAO Keyboard Firmware
 
-[![Current Version](https://img.shields.io/github/tag/qmk/qmk_firmware.svg)](https://github.com/qmk/qmk_firmware/tags)
-[![Discord](https://img.shields.io/discord/440868230475677696.svg)](https://discord.gg/qmk)
-[![Docs Status](https://img.shields.io/badge/docs-ready-orange.svg)](https://docs.qmk.fm)
-[![GitHub contributors](https://img.shields.io/github/contributors/qmk/qmk_firmware.svg)](https://github.com/qmk/qmk_firmware/pulse/monthly)
-[![GitHub forks](https://img.shields.io/github/forks/qmk/qmk_firmware.svg?style=social&label=Fork)](https://github.com/qmk/qmk_firmware/)
+This repository contains QMK firmware for **CZMAO** custom keyboards.
 
-This is a keyboard firmware based on the [tmk\_keyboard firmware](https://github.com/tmk/tmk_keyboard) with some useful features for Atmel AVR and ARM controllers, and more specifically, the [OLKB product line](https://olkb.com), the [ErgoDox EZ](https://ergodox-ez.com) keyboard, and the Clueboard product line.
-
-## Documentation
-
-* [See the official documentation on docs.qmk.fm](https://docs.qmk.fm)
-
-The docs are powered by [VitePress](https://vitepress.dev/). They are also viewable offline; see [Previewing the Documentation](https://docs.qmk.fm/#/contributing?id=previewing-the-documentation) for more details.
-
-You can request changes by making a fork and opening a [pull request](https://github.com/qmk/qmk_firmware/pulls).
+> **Looking for pre-built firmware?** Check the [**firmware/ folder**](firmware/) for direct downloads and flashing instructions.
 
 ## Supported Keyboards
 
-* [Planck](/keyboards/planck/)
-* [Preonic](/keyboards/preonic/)
-* [ErgoDox EZ](/keyboards/ergodox_ez/)
-* [Clueboard](/keyboards/clueboard/)
-* [Cluepad](/keyboards/clueboard/17/)
-* [Atreus](/keyboards/atreus/)
+| Keyboard | Description | VIA | Source |
+|----------|-------------|-----|--------|
+| [CZMAO AT87](keyboards/czmao/czmao_at87/) | 87-key TKL, AT32F405, UF2 bootloader | Yes | [Source](keyboards/czmao/czmao_at87/) |
+| [CZMAO DS17R6](keyboards/czmao/ds17r6/) | 17-key numpad, direct matrix | Yes | [Source](keyboards/czmao/ds17r6/) |
+| [CZMAO DS22](keyboards/czmao/ds22/) | 22-key numpad, direct matrix | Yes | [Source](keyboards/czmao/ds22/) |
+| [CZMAO GamerLite](keyboards/czmao/gamerlite/) | Gaming keyboard (game console adapter compatible) | Yes | [Source](keyboards/czmao/gamerlite/) |
 
-The project also includes community support for [lots of other keyboards](/keyboards/).
+## Quick Start
 
-## Maintainers
+1. Go to the [**firmware/ folder**](firmware/)
+2. Download the firmware for your keyboard
+3. Follow the [flashing guide](firmware/README.md#flashing-guide)
 
-QMK is developed and maintained by Jack Humbert of OLKB with contributions from the community, and of course, [Hasu](https://github.com/tmk). The OLKB product firmwares are maintained by [Jack Humbert](https://github.com/jackhumbert), the Ergodox EZ by [ZSA Technology Labs](https://github.com/zsa), the Clueboard by [Zach White](https://github.com/skullydazed), and the Atreus by [Phil Hagelberg](https://github.com/technomancy).
+## Building from Source
 
-## Official Website
+```bash
+# Example: build CZMAO DS22 VIA firmware
+make czmao/ds22:via COLOR=false
 
-[qmk.fm](https://qmk.fm) is the official website of QMK, where you can find links to this page, the documentation, and the keyboards supported by QMK.
+# Example: build CZMAO AT87 VIA firmware
+make czmao/czmao_at87:via COLOR=false
+```
+
+## About QMK
+
+This is a fork of [QMK Firmware](https://github.com/qmk/qmk_firmware). For full QMK documentation, visit [docs.qmk.fm](https://docs.qmk.fm).
+
+---
+
+CZMAO (c) 2026. Firmware released under GPL v2. Website: [micah.vip](https://micah.vip)

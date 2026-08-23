@@ -30,11 +30,14 @@
  *   COM -> PA1 (ADC1_IN1)
  *   6 row drive pins: PA2-PA7
  *
- * Sensing: charge redistribution
- *   Discharge both ends -> switch PA1 to analog -> pulse row HIGH -> read ADC.
+ * Sensing method: charge transfer (redistribution)
+ *   1. PA1 drives HIGH to pre-charge the column/sense plate via mux
+ *   2. Row pin is driven LOW (grounded) during pre-charge
+ *   3. PA1 switches to analog (high-Z), row switches to floating input (high-Z)
+ *   4. Charge redistributes instantly through mux Ron
+ *   5. ADC reads PA1: unpressed ~VDD (high), pressed ~lower (charge shared)
  *
  * DEBUG: prints raw ADC + diff for all 96 keys over QMK console.
- *        Use QMK Toolbox (enable HID console) or `qmk console` to view.
  */
 
 #define ROW_COUNT 6
@@ -45,12 +48,12 @@ static const pin_t mux_pins[4]         = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
 /* ── Tuning ──────────────────────────────────────────────────────────── */
-#define THRESHOLD         60
-#define DISCHARGE_US      3
+#define THRESHOLD         80
+#define PRECHARGE_US      5
 #define BASELINE_SAMPLES  32
-#define DEBUG_PRINT_INTERVAL  25   /* scan cycles between prints */
+#define DEBUG_PRINT_INTERVAL  20
 
-/* ── STM32F103 register helpers (non-conflicting names) ──────────────── */
+/* ── STM32F103 register helpers ──────────────────────────────────────── */
 #define EC_RCC_APB2ENR   (*(volatile uint32_t *)0x40021018)
 #define EC_RCC_CFGR      (*(volatile uint32_t *)0x40021004)
 
@@ -64,23 +67,59 @@ static const pin_t mux_pins[4]         = {B8, B9, B10, B11};
 
 #define EC_GPIOA_CRL     (*(volatile uint32_t *)0x40010800)
 #define EC_GPIOA_BSRR    (*(volatile uint32_t *)0x40010810)
+#define EC_GPIOA_IDR     (*(volatile uint32_t *)0x40010808)
+
+/* PA1 bits in CRL: [7:4] */
 #define EC_PA1_MASK      0x000000F0u
+/* PA2-PA7 bits in CRL: [31:8] */
+#define EC_ROW_MASK      0xFFFFFF00u  /* covers PA2..PA7 (bits 8-31) */
 
 /* ── State ───────────────────────────────────────────────────────────── */
 static uint16_t baseline[ROW_COUNT][COL_COUNT];
 static uint16_t adc_raw[ROW_COUNT][COL_COUNT];
 static int16_t  adc_diff[ROW_COUNT][COL_COUNT];
-static uint8_t  scan_counter = 0;
+static uint8_t scan_counter = 0;
 
-/* ── PA1 pin mode ────────────────────────────────────────────────────── */
+/* ── PA1 pin mode helpers ────────────────────────────────────────────── */
 
-static inline void pa1_set_analog(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK);          /* CNF=00, MODE=00 */
+/* PA1: analog input (high-Z) */
+static inline void pa1_analog(void) {
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK);  /* CNF=00, MODE=00 */
 }
 
-static inline void pa1_discharge_low(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4); /* push-pull 50MHz */
-    EC_GPIOA_BSRR = (1u << 17);                            /* BR1 -> drive LOW */
+/* PA1: push-pull output 50MHz, drive HIGH */
+static inline void pa1_drive_high(void) {
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
+    EC_GPIOA_BSRR = (1u << 1);   /* BS1 */
+}
+
+/* PA1: push-pull output 50MHz, drive LOW */
+static inline void pa1_drive_low(void) {
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
+    EC_GPIOA_BSRR = (1u << 17);  /* BR1 */
+}
+
+/* ── Row pin mode (direct register, PA2-PA7 = CRL bits 8-31) ─────────── */
+
+/* Set all 6 rows to floating input (high-Z) */
+static inline void rows_all_floating(void) {
+    /* CNF=01 (floating input), MODE=00 (input) for PA2..PA7
+     * Each pin uses 4 bits: CNF[1:0] MODE[1:0]
+     * Floating input = 0x4 (CNF=01, MODE=00)
+     * PA2 starts at bit 8. Set all 6 pins to 0x4 in their nibble. */
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x44444400u);
+}
+
+/* Set specific row to push-pull output LOW, others floating */
+static inline void row_set_output_low(uint8_t row) {
+    rows_all_floating();
+    /* For the active row pin (PA2+row), set CNF=00, MODE=11 (50MHz PP output)
+     * Pin offset = 8 + row*4. Output mode = 0x3. */
+    uint8_t shift = 8 + row * 4;
+    EC_GPIOA_CRL &= ~(0xFu << shift);
+    EC_GPIOA_CRL |=  (0x3u << shift);
+    /* Drive LOW: BR bit = 16 + (2+row) = 18+row */
+    EC_GPIOA_BSRR = (1u << (18 + row));
 }
 
 /* ── Mux ─────────────────────────────────────────────────────────────── */
@@ -98,7 +137,7 @@ static void mux_disable(void) { gpio_write_pin(MUX_EN_PIN, 1); }
 static void adc_init(void) {
     EC_RCC_APB2ENR |= (1u << 2) | (1u << 9);   /* IOPAEN + ADC1EN */
 
-    /* ADC clock: PCLK2 / 6 = 12 MHz (<=14 MHz) */
+    /* ADC clock: PCLK2 / 6 = 12 MHz */
     EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14);
 
     EC_ADC1_CR2 = 1u << 0;                     /* ADON */
@@ -110,44 +149,42 @@ static void adc_init(void) {
     EC_ADC1_CR2 |= (1u << 2);                  /* CAL */
     while (EC_ADC1_CR2 & (1u << 2)) { ; }
 
-    /* ADON | EXTTRIG (bit20) | EXTSEL=111 (bits19:17 = SWSTART) */
-    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);
+    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);  /* ADON|EXTTRIG|SWSTART */
     EC_ADC1_CR1 = 0;
-    EC_ADC1_SQR1 = 0;                          /* 1 conversion in sequence */
-    /*
-     * Sample time for channel 1: 1.5 cycles = fastest.
-     * At 12 MHz ADC clock, conversion is ~1.25 µs total.
-     * A long sample time lets the mux on-resistance + parasitic R
-     * pull the node to VDD regardless of key capacitance, which is
-     * why all RAW readings were ~3490.  Short sample captures the
-     * charge-sharing instant before that DC path settles.
-     */
-    EC_ADC1_SMPR2 = (EC_ADC1_SMPR2 & ~(7u << 3)) | (0u << 3);
-    EC_ADC1_SQR3 = (EC_ADC1_SQR3 & ~0x1Fu) | 1u;  /* first rank = channel 1 */
+    EC_ADC1_SQR1 = 0;
+
+    /* Sample time: 55.5 cycles (~4.6µs) for stable reading after redistribution */
+    EC_ADC1_SMPR2 = (EC_ADC1_SMPR2 & ~(7u << 3)) | (5u << 3);  /* SMP1=101 */
+    EC_ADC1_SQR3 = (EC_ADC1_SQR3 & ~0x1Fu) | 1u;
 }
 
 static uint16_t adc_read_once(void) {
     EC_ADC1_CR2 |= (1u << 22);                 /* SWSTART */
     uint32_t t = 10000;
-    while (!(EC_ADC1_SR & (1u << 1)) && --t) { ; }   /* wait EOC */
+    while (!(EC_ADC1_SR & (1u << 1)) && --t) { ; }
     return (uint16_t)(EC_ADC1_DR & 0xFFFu);
 }
 
-/* ── Capacitance read ────────────────────────────────────────────────── */
+/* ── Capacitance read (charge transfer) ──────────────────────────────── */
 
 static uint16_t read_capacitance(uint8_t row, uint8_t col) {
     mux_set_channel(col);
 
-    pa1_discharge_low();
-    gpio_write_pin(row_pins[row], 0);
-    wait_us(DISCHARGE_US);
+    /* Step 1: Pre-charge. PA1=PP HIGH, active row=PP LOW, others floating. */
+    row_set_output_low(row);
+    pa1_drive_high();
+    wait_us(PRECHARGE_US);
 
-    pa1_set_analog();
-    gpio_write_pin(row_pins[row], 1);
+    /* Step 2: Float everything simultaneously.
+     * PA1 -> analog (high-Z), active row -> floating input.
+     * Charge redistributes through mux Ron (~100Ω, RC ~1-2ns). */
+    pa1_analog();
+    rows_all_floating();
 
+    /* Step 3: Read ADC.
+     * Unpressed: COM held near VDD by column parasitic cap -> high reading
+     * Pressed: charge shared with key cap + row parasitic -> lower reading */
     uint16_t val = adc_read_once();
-
-    gpio_write_pin(row_pins[row], 0);
     return val;
 }
 
@@ -156,10 +193,6 @@ static uint16_t read_capacitance(uint8_t row, uint8_t col) {
 static void calibrate_baseline(void) {
     mux_enable();
     for (uint8_t row = 0; row < ROW_COUNT; row++) {
-        for (uint8_t r = 0; r < ROW_COUNT; r++) {
-            if (r == row) { gpio_set_pin_output(row_pins[r]); gpio_write_pin(row_pins[r], 0); }
-            else          { gpio_set_pin_input(row_pins[r]); }
-        }
         for (uint8_t col = 0; col < COL_COUNT; col++) {
             uint32_t sum = 0;
             for (int s = 0; s < BASELINE_SAMPLES; s++)
@@ -167,10 +200,7 @@ static void calibrate_baseline(void) {
             baseline[row][col] = (uint16_t)(sum / BASELINE_SAMPLES);
         }
     }
-    for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        gpio_set_pin_output(row_pins[r]);
-        gpio_write_pin(row_pins[r], 0);
-    }
+    rows_all_floating();
     mux_disable();
 }
 
@@ -178,7 +208,7 @@ static void calibrate_baseline(void) {
 
 static void debug_print(void) {
     uint16_t max_raw = 0, min_raw = 4095;
-    int16_t  max_diff = -4096;
+    int16_t  max_diff = -4096, min_diff = 4096;
     uint8_t  mr_r = 0, mr_c = 0, md_r = 0, md_c = 0;
 
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
@@ -188,13 +218,13 @@ static void debug_print(void) {
             if (v > max_raw) { max_raw = v; mr_r = r; mr_c = c; }
             if (v < min_raw)   min_raw = v;
             if (d > max_diff) { max_diff = d; md_r = r; md_c = c; }
+            if (d < min_diff)   min_diff = d;
         }
     }
 
-    xprintf("=== EC87 | raw min=%u max=%u @R%uC%u | diff=%d @R%uC%u ===\n",
-            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c);
+    xprintf("=== EC87 | raw %u-%u @R%uC%u | diff %d..%d @R%uC%u ===\n",
+            min_raw, max_raw, mr_r, mr_c, min_diff, max_diff, md_r, md_c);
 
-    /* RAW grid — shows baseline at rest, jumps when pressed */
     print("RAW:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         xprintf("R%u:", r);
@@ -216,23 +246,20 @@ static void debug_print(void) {
 /* ── QMK interface ───────────────────────────────────────────────────── */
 
 void matrix_init_custom(void) {
-    for (int i = 0; i < ROW_COUNT; i++) {
-        gpio_set_pin_output(row_pins[i]);
-        gpio_write_pin(row_pins[i], 0);
-    }
+    /* Mux pins as outputs */
     for (int i = 0; i < 4; i++) {
         gpio_set_pin_output(mux_pins[i]);
         gpio_write_pin(mux_pins[i], 0);
     }
     gpio_set_pin_output(MUX_EN_PIN);
-    gpio_write_pin(MUX_EN_PIN, 1);
+    gpio_write_pin(MUX_EN_PIN, 1);  /* disabled initially */
 
     adc_init();
     calibrate_baseline();
 
-    print("\n\n=== EC87 DEBUG READY === ADC on PA1, baseline calibrated.\n");
-    print("Press keys; RAW value on the pressed cell should rise.\n");
-    print("If RAW is all 0 or all 4095, ADC / mux wiring is wrong.\n\n");
+    print("\n\n=== EC87 CHARGE-TRANSFER DEBUG READY ===\n");
+    print("PA1 pre-charge HIGH -> float both -> ADC read.\n");
+    print("Pressed key should show LOWER raw value (negative diff).\n\n");
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
@@ -243,14 +270,9 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     for (uint8_t row = 0; row < ROW_COUNT; row++) {
         matrix_row_t new_row = 0;
 
-        for (uint8_t r = 0; r < ROW_COUNT; r++) {
-            if (r == row) { gpio_set_pin_output(row_pins[r]); gpio_write_pin(row_pins[r], 0); }
-            else          { gpio_set_pin_input(row_pins[r]); }
-        }
-
         for (uint8_t col = 0; col < COL_COUNT; col++) {
             uint16_t val = read_capacitance(row, col);
-            int16_t  diff = (int16_t)val - (int16_t)baseline[row][col];
+            int16_t  diff = (int16_t)baseline[row][col] - (int16_t)val;  /* pressed => positive diff */
 
             adc_raw[row][col]  = val;
             adc_diff[row][col] = diff;
@@ -258,6 +280,7 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
             if (diff > THRESHOLD)
                 new_row |= (matrix_row_t)1 << col;
 
+            /* Slow baseline tracking */
             if (diff < THRESHOLD) {
                 if      (val > baseline[row][col]) baseline[row][col]++;
                 else if (val < baseline[row][col]) baseline[row][col]--;
@@ -270,10 +293,7 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
         }
     }
 
-    for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        gpio_set_pin_output(row_pins[r]);
-        gpio_write_pin(row_pins[r], 0);
-    }
+    rows_all_floating();
     mux_disable();
 
     if (++scan_counter >= DEBUG_PRINT_INTERVAL) {

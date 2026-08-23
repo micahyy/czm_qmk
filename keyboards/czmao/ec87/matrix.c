@@ -15,9 +15,8 @@
 #include "gpio.h"
 #include "wait.h"
 #include "print.h"
+#include "debug.h"
 #include <stdint.h>
-
-extern uint8_t debug_enable;
 
 #define ROW_COUNT 6
 #define COL_COUNT 16
@@ -190,7 +189,8 @@ static void debug_print(void) {
 /* ── QMK interface ───────────────────────────────────────────────────── */
 
 void matrix_init_custom(void) {
-    debug_enable = 1;
+    debug_enable = true;
+    debug_matrix = true;
     wait_ms(200);
 
     /* Enable GPIOA clock */

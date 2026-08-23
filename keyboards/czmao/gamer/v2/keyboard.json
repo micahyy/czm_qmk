@@ -29,6 +29,12 @@
     "dynamic_keymap": {
         "layer_count": 8
     },
+    "encoder": {
+        "enabled": true,
+        "rotary": [
+            {"pin_a": "A5", "pin_b": "A6", "resolution": 2}
+        ]
+    },
     "ws2812": {
         "pin": "B13"
     },

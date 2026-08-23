@@ -60,9 +60,7 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define SAMPLES_AVG       3
 #define BASELINE_SAMPLES  16
 
-static matrix_row_t raw_matrix[ROW_COUNT];
 static uint16_t baseline[ROW_COUNT][COL_COUNT];
-static bool matrix_ready = false;
 
 static void mux_set_channel(uint8_t ch) {
     for (int i = 0; i < 4; i++) {
@@ -135,12 +133,10 @@ void matrix_init_custom(void) {
     gpio_write_pin(MUX_EN_PIN, 1);
 
     /* ADC pin - analogReadPin handles configuration */
-    analogReference(ADC_REF_POWER);  /* VDDA ~3.3V */
+    /* STM32 ADC defaults to VDDA reference (~3.3V), no analogReference needed */
 
     /* Calibrate baseline - do not press keys during boot */
     calibrate_baseline();
-
-    matrix_ready = true;
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {

@@ -1,30 +1,38 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "matrix.h"
 #include "quantum.h"
 
-#ifdef ENCODERS_MATRIX_MAP
-static keypos_t encoders_matrix_map[NUM_ENCODERS_MAX_PER_SIDE][2] = ENCODERS_MATRIX_MAP;
+#ifdef VIA_ENABLE
+#    include "dynamic_keymap.h"
 #endif
 
+// Encoder maps to matrix positions: clockwise -> [5,4], counter-clockwise -> [5,5]
+// These positions in VIA can be remapped.
 bool encoder_update_kb(uint8_t index, bool clockwise) {
-#ifndef ENCODERS_MATRIX_MAP
-    return encoder_update_user(index, clockwise);
+    if (!encoder_update_user(index, clockwise)) {
+        return false;
+    }
+
+    uint8_t row = clockwise ? 5 : 5;
+    uint8_t col = clockwise ? 4 : 5;
+
+    uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+    uint16_t keycode = KC_NO;
+
+#ifdef VIA_ENABLE
+    keycode = dynamic_keymap_get_keycode(layer, row, col);
+    // If transparent, fall through layers
+    while (keycode == KC_TRNS && layer > 0) {
+        layer--;
+        keycode = dynamic_keymap_get_keycode(layer, row, col);
+    }
 #else
-    keypos_t key = encoders_matrix_map[index][!clockwise];
-    uint8_t layer = layer_switch_get_layer(key);
-    uint16_t keycode;
-#if defined(DYNAMIC_KEYMAP_ENABLE)
-    keycode = dynamic_keymap_get_keycode(layer, key.row, key.col);
-#else
-    keycode = keymap_key_to_keycode(layer, key);
+    keycode = keymap_key_to_keycode(layer, (keypos_t){row, col});
 #endif
 
     if (keycode != KC_NO && keycode != KC_TRNS) {
-        tap_code_delay(keycode, 0);
-        return false;
-    } else {
-        return true;
+        tap_code_delay(keycode, 10);
     }
-#endif
+
+    return false;
 }

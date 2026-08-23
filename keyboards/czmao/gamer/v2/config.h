@@ -4,5 +4,4 @@
 
 #ifdef ENCODER_ENABLE
 #    define ENCODER_RESOLUTIONS   { 2 }
-#    define ENCODERS_MATRIX_MAP   {{{5, 4}, {5, 5}}}
 #endif

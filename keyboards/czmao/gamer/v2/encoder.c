@@ -12,10 +12,15 @@ bool encoder_update_kb(uint8_t index, bool clockwise) {
     return encoder_update_user(index, clockwise);
 #else
     keypos_t key = encoders_matrix_map[index][!clockwise];
-    uint8_t layerIndex = layer_switch_get_layer(key);
-    uint16_t keycode = keymap_key_to_keycode(layerIndex, key);
+    uint8_t layer = layer_switch_get_layer(key);
+    uint16_t keycode;
+#if defined(DYNAMIC_KEYMAP_ENABLE)
+    keycode = dynamic_keymap_get_keycode(layer, key.row, key.col);
+#else
+    keycode = keymap_key_to_keycode(layer, key);
+#endif
 
-    if (keycode != KC_NO) {
+    if (keycode != KC_NO && keycode != KC_TRNS) {
         tap_code_delay(keycode, 0);
         return false;
     } else {

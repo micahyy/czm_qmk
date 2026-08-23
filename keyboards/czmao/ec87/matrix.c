@@ -19,11 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #include "analog.h"
 #include "wait.h"
 #include "gpio.h"
-#include "debounce.h"
-#include "timer.h"
 
 /*
- * EC87 capacitive sensing matrix
+ * EC87 capacitive sensing matrix (CUSTOM_MATRIX = lite)
  *
  * 74HC4067 16-channel analog mux:
  *   S0=PB8, S1=PB9, S2=PB10, S3=PB11, EN=PB12
@@ -61,7 +59,6 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define BASELINE_SAMPLES  16
 
 static uint16_t baseline[ROW_COUNT][COL_COUNT];
-static matrix_row_t matrix_raw[MATRIX_ROWS];
 
 static void mux_set_channel(uint8_t ch) {
     for (int i = 0; i < 4; i++) {
@@ -134,7 +131,7 @@ void matrix_init_custom(void) {
     gpio_write_pin(MUX_EN_PIN, 1);
 
     /* ADC pin - analogReadPin handles configuration */
-    /* STM32 ADC defaults to VDDA reference (~3.3V), no analogReference needed */
+    /* STM32 ADC defaults to VDDA reference (~3.3V) */
 
     /* Calibrate baseline - do not press keys during boot */
     calibrate_baseline();
@@ -167,26 +164,13 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
             }
         }
 
-        if (new_row != matrix_raw[row]) {
-            matrix_raw[row] = new_row;
+        if (new_row != current_matrix[row]) {
+            current_matrix[row] = new_row;
             changed = true;
         }
     }
 
     mux_disable();
 
-    if (changed) {
-        for (uint8_t i = 0; i < MATRIX_ROWS; i++) {
-            current_matrix[i] = matrix_raw[i];
-        }
-    }
-
     return changed;
-}
-
-matrix_row_t matrix_get_row(uint8_t row) {
-    return matrix_raw[row];
-}
-
-__attribute__((weak)) void matrix_print(void) {
 }

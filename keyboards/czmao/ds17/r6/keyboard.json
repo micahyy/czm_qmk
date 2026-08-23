@@ -1,7 +1,7 @@
 {
     "keyboard_name": "CZMAO DS17R6",
     "manufacturer": "CZMAO",
-    "url": "https://github.com/micahyy/qmk/tree/applo87h/keyboards/czmao/ds17r6",
+    "url": "https://github.com/micahyy/qmk/tree/main/keyboards/czmao/ds17/r6",
     "maintainer": "micah",
     "diode_direction": "COL2ROW",
     "processor": "STM32F103",

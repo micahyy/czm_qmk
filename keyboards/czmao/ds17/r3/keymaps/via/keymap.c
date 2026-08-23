@@ -3,24 +3,52 @@
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT_numberpad_5x4(
         LT(1,KC_NUM), KC_PSLS, KC_PAST, KC_PMNS,
-        KC_P7,        KC_P8,   KC_P9,
-        KC_P4,        KC_P5,   KC_P6,   KC_PPLS,
-        KC_P1,        KC_P2,   KC_P3,
-        KC_P0,                 KC_PDOT, KC_PENT
+        LT(7,KC_P7),  KC_P8,   KC_P9,
+        LT(4,KC_P4),  LT(5,KC_P5), LT(6,KC_P6), KC_PPLS,
+        LT(1,KC_P1),  LT(2,KC_P2), LT(3,KC_P3),
+        KC_P0,                  KC_PDOT, KC_PENT
     ),
     [1] = LAYOUT_numberpad_5x4(
-        KC_TRNS, KC_TRNS, MO(2),   RM_VALU,
+        KC_TRNS, KC_NUM,  MO(2),   KC_CALC,
+        KC_HOME, KC_UP,   KC_PGUP,
+        KC_LEFT, KC_TRNS, KC_RGHT, KC_TRNS,
+        KC_END,  KC_DOWN, KC_PGDN,
+        KC_LSFT,          KC_RSFT, KC_N
+    ),
+    [2] = LAYOUT_numberpad_5x4(
+        KC_TRNS, KC_TRNS, KC_TRNS, RM_VALU,
         RM_TOGG, RM_SATU, KC_TRNS,
-        RM_HUED, KC_TRNS, RM_HUEU, RM_VALD,
+        RM_HUED, EE_CLR,  RM_HUEU, RM_VALD,
         KC_TRNS, RM_SATD, KC_TRNS,
         RM_NEXT,          KC_TRNS, KC_TRNS
     ),
-    [2] = LAYOUT_numberpad_5x4(
-        KC_TRNS, KC_TRNS, KC_TRNS, NK_TOGG,
+    [3] = LAYOUT_numberpad_5x4(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
         KC_TRNS, KC_TRNS, KC_TRNS,
         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
         KC_TRNS, KC_TRNS, KC_TRNS,
-        KC_TRNS,          KC_TRNS, EE_CLR
+        KC_TRNS,          KC_TRNS, KC_TRNS
+    ),
+    [4] = LAYOUT_numberpad_5x4(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS,          KC_TRNS, KC_TRNS
+    ),
+    [5] = LAYOUT_numberpad_5x4(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS,          KC_TRNS, KC_TRNS
+    ),
+    [6] = LAYOUT_numberpad_5x4(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS,          KC_TRNS, KC_TRNS
     ),
     [7] = LAYOUT_numberpad_5x4(
         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,

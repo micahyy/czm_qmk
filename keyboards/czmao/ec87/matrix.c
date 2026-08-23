@@ -179,37 +179,39 @@ static void calibrate_baseline(void) {
 /* ── Debug print ─────────────────────────────────────────────────────── */
 
 static void debug_print(void) {
-    /* Find max diff across the matrix */
-    int16_t max_diff = 0;
-    uint8_t max_row = 0, max_col = 0;
+    /* Locate the largest raw value and largest positive diff */
+    uint16_t max_raw = 0, min_raw = 4095;
+    int16_t  max_diff = -4096;
+    uint8_t  mr_r = 0, mr_c = 0, md_r = 0, md_c = 0;
+
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         for (uint8_t c = 0; c < COL_COUNT; c++) {
-            if (adc_diff[r][c] > max_diff) {
-                max_diff = adc_diff[r][c];
-                max_row = r;
-                max_col = c;
-            }
+            uint16_t v = adc_raw[r][c];
+            int16_t  d = adc_diff[r][c];
+            if (v > max_raw) { max_raw = v; mr_r = r; mr_c = c; }
+            if (v < min_raw) { min_raw = v; }
+            if (d > max_diff) { max_diff = d; md_r = r; md_c = c; }
         }
     }
 
-    print("=== EC87 ADC === max_diff=");
-    print("R");
-    xprintf("%d", max_row);
-    print("C");
-    xprintf("%d", max_col);
-    print(" val=");
-    xprintf("%d", adc_raw[max_row][max_col]);
-    print(" base=");
-    xprintf("%d", baseline[max_row][max_col]);
-    print(" diff=");
-    xprintf("%d", max_diff);
-    print("\n");
+    xprintf("=== EC87 ADC raw | min=%d max=%d @R%dC%d | biggest diff=%d @R%dC%d ===\n",
+            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c);
 
     /*
-     * Print a compact 6x16 grid of diff values.
-     * Format: R#: c00 c01 c02 ... c15
-     * Values are signed, fixed-width 4 chars.
+     * Print RAW ADC grid first — this shows the baseline when idle
+     * and should visibly jump on the pressed key.
+     * Format: R#: c00 c01 ... c15
      */
+    print("RAW:\n");
+    for (uint8_t r = 0; r < ROW_COUNT; r++) {
+        xprintf("R%d:", r);
+        for (uint8_t c = 0; c < COL_COUNT; c++) {
+            xprintf(" %4d", adc_raw[r][c]);
+        }
+        print("\n");
+    }
+
+    print("DIFF:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++) {

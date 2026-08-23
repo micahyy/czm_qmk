@@ -13,7 +13,7 @@ Pre-built VIA firmware for CZMAO DS17R3 (diode matrix version).
 
 | File | Size |
 |------|------|
-| czmao_ds17r3_via.bin | (pending build) |
+| czmao_ds17r3_via.bin | 33680 bytes |
 
 ### Specifications
 
@@ -33,7 +33,7 @@ https://makerworld.com.cn/zh/@micahyy/upload
 
 | Date | Changes |
 |------|---------|
-| 2026-08-23 | Added r3 source alongside r6 in keyboards/czmao/ds17/. Fixed QMK 2026 compilation: GPIO API migrated to PAL, RGB keycodes renamed to RM_*. Added all 8 VIA layers. Bilingual README. MCU updated to APM32F103CBT6. |
+| 2026-08-23 | Initial r3 build. Fixed QMK 2026 compilation: GPIO API migrated to PAL, RGB keycodes renamed to RM_*. All 8 VIA layers. MCU: APM32F103CBT6. |
 | 2026-01-11 | Original r3 firmware (diode matrix, COL2ROW scan). |
 
 ---
@@ -47,7 +47,7 @@ CZMAO DS17R3（二极管矩阵版）预编译 VIA 固件。
 
 | 文件 | 大小 |
 |------|------|
-| czmao_ds17r3_via.bin | （待编译） |
+| czmao_ds17r3_via.bin | 33680 字节 |
 
 ### 规格
 
@@ -67,7 +67,7 @@ https://makerworld.com.cn/zh/@micahyy/upload
 
 | 日期 | 修改内容 |
 |------|---------|
-| 2026-08-23 | r3与r6共同放入 keyboards/czmao/ds17/。修复QMK 2026编译：GPIO API迁移为PAL，RGB键码改为RM_*前缀，补全8个VIA图层。中英文README。主控更新为APM32F103CBT6。 |
+| 2026-08-23 | r3首次编译。修复QMK 2026编译：GPIO API迁移为PAL，RGB键码改为RM_*前缀，补全8个VIA图层。主控：APM32F103CBT6。 |
 | 2026-01-11 | 原始r3固件（二极管行列扫描）。 |
 
 ---

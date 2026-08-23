@@ -123,9 +123,7 @@
             { "flags": 2, "matrix": [5, 0], "x": 22, "y": 64 },
             { "flags": 2, "matrix": [5, 1], "x": 60, "y": 64 },
             { "flags": 2, "matrix": [5, 2], "x": 97, "y": 64 },
-            { "flags": 2, "matrix": [5, 3], "x": 224, "y": 64 },
-            { "flags": 2, "matrix": [5, 4], "x": 200, "y": 0 },
-            { "flags": 2, "matrix": [5, 5], "x": 224, "y": 0 }
+            { "flags": 2, "matrix": [5, 3], "x": 224, "y": 64 }
         ],
         "sleep": true
     },
@@ -171,9 +169,7 @@
                 {"label": "LCTL", "matrix": [5, 0], "x": 0, "y": 5},
                 {"label": "FN", "matrix": [5, 1], "x": 1, "y": 5},
                 {"label": "LALT", "matrix": [5, 2], "x": 2, "y": 5},
-                {"label": "SPC", "matrix": [5, 3], "x": 3, "y": 5},
-                {"label": "VOLU", "matrix": [5, 4], "x": 5, "y": 0},
-                {"label": "VOLD", "matrix": [5, 5], "x": 6, "y": 0}
+                {"label": "SPC", "matrix": [5, 3], "x": 3, "y": 5}
             ]
         }
     }

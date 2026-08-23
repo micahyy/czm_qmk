@@ -7,7 +7,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,
         KC_CAPS, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,
         KC_LSFT, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,
-        KC_LCTL, MO(1),   KC_LALT, KC_SPC,  KC_VOLU, KC_VOLD
+        KC_LCTL, MO(1),   KC_LALT, KC_SPC,  KC_NO,   KC_NO
     ),
 
     [1] = LAYOUT(
@@ -16,7 +16,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______, _______, _______, _______, _______, _______,
         _______, _______, _______, _______, _______, _______,
         _______, _______, _______, _______, _______, _______,
-        _______, _______, MO(2),   _______, KC_MNXT, KC_MPRV
+        _______, _______, MO(2),   _______, _______, _______
     ),
 
     [2] = LAYOUT(
@@ -73,6 +73,19 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______, _______, _______, _______, _______, _______
     )
 };
+
+#if defined(ENCODER_MAP_ENABLE)
+const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
+    [0] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
+    [1] = { ENCODER_CCW_CW(KC_MPRV, KC_MNXT) },
+    [2] = { ENCODER_CCW_CW(RM_VALD, RM_VALU) },
+    [3] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
+    [4] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
+    [5] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
+    [6] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
+    [7] = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS) },
+};
+#endif
 
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
     if (host_keyboard_led_state().caps_lock) {

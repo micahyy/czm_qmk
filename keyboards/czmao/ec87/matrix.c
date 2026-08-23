@@ -187,3 +187,6 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
 matrix_row_t matrix_get_row(uint8_t row) {
     return matrix_raw[row];
 }
+
+__attribute__((weak)) void matrix_print(void) {
+}

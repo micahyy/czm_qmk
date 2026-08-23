@@ -17,7 +17,7 @@ Pre-built VIA firmware for CZMAO DS17R6 (direct pin version).
 
 ### Specifications
 
-- MCU: STM32F103
+- MCU: **Geehy APM32F103CBT6** (STM32F103 compatible, drop-in replacement)
 - Layout: 17-key numpad, direct pin matrix (no diodes)
 - USB VID:PID: 0x4A17:0x4A18
 - RGB: WS2812
@@ -33,7 +33,7 @@ https://makerworld.com.cn/zh/@micahyy/upload
 
 | Date | Changes |
 |------|---------|
-| 2026-08-23 | Restructured to keyboards/czmao/ds17/r6/. Added r3 alongside. Bilingual README with case link. |
+| 2026-08-23 | Restructured to keyboards/czmao/ds17/r6/. Added r3 alongside. Bilingual README with case link. MCU updated to APM32F103CBT6. |
 | 2026-08-21 | Per QMK PR review: removed redundant files, formatted keyboard.json, fixed readme. CI passed. |
 | 2026-08-20 | Initial r6 release, direct pin matrix. Submitted QMK PR #26412. |
 
@@ -52,7 +52,7 @@ CZMAO DS17R6（直连矩阵版）预编译 VIA 固件。
 
 ### 规格
 
-- 主控: STM32F103
+- 主控: **极海 APM32F103CBT6**（兼容STM32F103，可直接替换）
 - 配列: 17键数字小键盘，直连矩阵（无需二极管）
 - USB VID:PID: 0x4A17:0x4A18
 - 灯效: WS2812 RGB
@@ -68,7 +68,7 @@ https://makerworld.com.cn/zh/@micahyy/upload
 
 | 日期 | 修改内容 |
 |------|---------|
-| 2026-08-23 | 目录重组为 keyboards/czmao/ds17/r6/，同时添加r3。中英文README，含外壳链接。 |
+| 2026-08-23 | 目录重组为 keyboards/czmao/ds17/r6/，同时添加r3。中英文README，含外壳链接。主控更新为APM32F103CBT6。 |
 | 2026-08-21 | 根据QMK PR review修改：删除冗余文件、格式化keyboard.json、修复readme，CI通过。 |
 | 2026-08-20 | r6首次发布，直连矩阵，提交QMK PR #26412。 |
 

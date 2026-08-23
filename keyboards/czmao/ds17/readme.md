@@ -4,6 +4,7 @@ CZMAO DS17 17-key numpad. Two hardware revisions share the same USB VID/PID and 
 
 CZMAO DS17 17键数字小键盘。两个硬件版本共享相同的 USB VID/PID 和 VIA 定义。
 
+- **MCU**: Geehy APM32F103CBT6 (STM32F103 compatible)
 - **r3**: Diode matrix (COL2ROW scan), soldered diodes / 二极管行列扫描
 - **r6**: Direct pin matrix (no diodes) / 直连矩阵（无需二极管）
 

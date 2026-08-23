@@ -17,9 +17,9 @@ Pre-built VIA firmware for CZMAO DS17R3 (diode matrix version).
 
 ### Specifications
 
-- MCU: STM32F103
+- MCU: **Geehy APM32F103CBT6** (STM32F103 compatible, drop-in replacement)
 - Layout: 17-key numpad, 5x4 diode matrix (COL2ROW)
-- USB VID:PID: `0x4A17:0x4A18`
+- USB VID:PID: 0x4A17:0x4A18
 - RGB: WS2812
 - NKRO: Enabled
 
@@ -33,7 +33,7 @@ https://makerworld.com.cn/zh/@micahyy/upload
 
 | Date | Changes |
 |------|---------|
-| 2026-08-23 | Added r3 source alongside r6 in `keyboards/czmao/ds17/`. Fixed QMK 2026 compilation: GPIO API migrated to PAL, RGB keycodes renamed to RM_*. Added all 8 VIA layers. Bilingual README. |
+| 2026-08-23 | Added r3 source alongside r6 in keyboards/czmao/ds17/. Fixed QMK 2026 compilation: GPIO API migrated to PAL, RGB keycodes renamed to RM_*. Added all 8 VIA layers. Bilingual README. MCU updated to APM32F103CBT6. |
 | 2026-01-11 | Original r3 firmware (diode matrix, COL2ROW scan). |
 
 ---
@@ -51,9 +51,9 @@ CZMAO DS17R3（二极管矩阵版）预编译 VIA 固件。
 
 ### 规格
 
-- 主控: STM32F103
+- 主控: **极海 APM32F103CBT6**（兼容STM32F103，可直接替换）
 - 配列: 17键数字小键盘，5x4二极管矩阵（COL2ROW）
-- USB VID:PID: `0x4A17:0x4A18`
+- USB VID:PID: 0x4A17:0x4A18
 - 灯效: WS2812 RGB
 - NKRO: 已启用
 
@@ -67,7 +67,7 @@ https://makerworld.com.cn/zh/@micahyy/upload
 
 | 日期 | 修改内容 |
 |------|---------|
-| 2026-08-23 | r3与r6共同放入 `keyboards/czmao/ds17/`。修复QMK 2026编译：GPIO API迁移为PAL，RGB键码改为RM_*前缀，补全8个VIA图层。中英文README。 |
+| 2026-08-23 | r3与r6共同放入 keyboards/czmao/ds17/。修复QMK 2026编译：GPIO API迁移为PAL，RGB键码改为RM_*前缀，补全8个VIA图层。中英文README。主控更新为APM32F103CBT6。 |
 | 2026-01-11 | 原始r3固件（二极管行列扫描）。 |
 
 ---

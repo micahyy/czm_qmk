@@ -114,7 +114,15 @@ static void adc_init(void) {
     EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);
     EC_ADC1_CR1 = 0;
     EC_ADC1_SQR1 = 0;                          /* 1 conversion in sequence */
-    EC_ADC1_SMPR2 = (EC_ADC1_SMPR2 & ~(7u << 3)) | (7u << 3); /* ch1: 239.5 cycles */
+    /*
+     * Sample time for channel 1: 1.5 cycles = fastest.
+     * At 12 MHz ADC clock, conversion is ~1.25 µs total.
+     * A long sample time lets the mux on-resistance + parasitic R
+     * pull the node to VDD regardless of key capacitance, which is
+     * why all RAW readings were ~3490.  Short sample captures the
+     * charge-sharing instant before that DC path settles.
+     */
+    EC_ADC1_SMPR2 = (EC_ADC1_SMPR2 & ~(7u << 3)) | (0u << 3);
     EC_ADC1_SQR3 = (EC_ADC1_SQR3 & ~0x1Fu) | 1u;  /* first rank = channel 1 */
 }
 

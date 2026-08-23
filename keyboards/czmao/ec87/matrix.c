@@ -43,7 +43,6 @@
 #define ROW_COUNT 6
 #define COL_COUNT 16
 
-static const pin_t row_pins[ROW_COUNT] = {A2, A3, A4, A5, A6, A7};
 static const pin_t mux_pins[4]         = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 

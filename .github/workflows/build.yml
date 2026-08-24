@@ -7,15 +7,6 @@ on:
       - 'keyboards/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
-    inputs:
-      keyboard:
-        description: 'Keyboard path (e.g. czmao/ds17r6)'
-        required: true
-        default: ''
-      keymap:
-        description: 'Keymap name'
-        required: true
-        default: 'default'
 
 jobs:
   build:
@@ -35,37 +26,18 @@ jobs:
           pip3 install qmk
           qmk --version || true
 
-      - name: Determine build target
-        id: target
-        run: |
-          if [ -n "${{ github.event.inputs.keyboard }}" ]; then
-            KB="${{ github.event.inputs.keyboard }}"
-            KM="${{ github.event.inputs.keymap }}"
-          else
-            KB=$(find keyboards -name "keyboard.json" | head -1 | xargs dirname | sed 's|^keyboards/||')
-            KM="default"
-          fi
-          SAFE_NAME=$(echo "$KB" | tr '/' '_')
-          echo "keyboard=$KB" >> $GITHUB_OUTPUT
-          echo "keymap=$KM" >> $GITHUB_OUTPUT
-          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
-          echo "Building: $KB:$KM"
-
-      - name: Build firmware
-        run: |
-          make ${{ steps.target.outputs.keyboard }}:${{ steps.target.outputs.keymap }} COLOR=false
+      - name: Build EC87 debug
+        run: make czmao/ec87:default COLOR=false
 
       - name: List build outputs
         run: |
-          echo "=== Root firmware files ==="
           ls -la *.bin *.hex *.uf2 2>/dev/null || echo "None in root"
-          echo "=== .build firmware files ==="
           ls -la .build/*.bin .build/*.hex .build/*.uf2 2>/dev/null || echo "None in .build"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.target.outputs.safe_name }}_${{ steps.target.outputs.keymap }}
+          name: czmao_ec87_firmware
           path: |
             *.bin
             *.hex

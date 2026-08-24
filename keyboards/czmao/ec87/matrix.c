@@ -1,21 +1,26 @@
 /* Copyright 2026 micahyy
  *
- * EC87 capacitive matrix — SIMULTANEOUS RELAXATION OSCILLATOR v3.5
+ * EC87 capacitive matrix — CHARGE REDISTRIBUTION via ADC v3.6
  *
- * v3.4 measured rows one at a time with individual GPIO mode switches,
- * causing race conditions on R5 (PA7) — garbage values 3/7/10/9300.
+ * Previous methods failed:
+ *   - RC timing on PA1/COM: mux parasitics dominate, no key response
+ *   - RC timing on rows (pull-up): 12-14 cycles, too fast to resolve
+ *   - ADC drive-col-high sense-rows: 20us sample let leakage pull to VDD
  *
- * v3.5 oscillates ALL 6 rows simultaneously:
- *   For each column (via 74HC4067, PA1 drives LOW):
- *     Repeat N_OSC times:
- *       1. All PA2-PA7 push-pull LOW (discharge all keys)
- *       2. Brief settle
- *       3. Switch ALL rows to internal pull-up input at once
- *       4. Poll IDR, record per-row charge cycles
- *       5. Discharge and repeat
- *     Accumulate per-row total cycles over N_OSC oscillations.
+ * New method — charge redistribution (charge sharing):
+ *   For each (col, row):
+ *     1. PA1 drives column LOW, all rows output LOW → everything discharged
+ *     2. PA1 drives column HIGH (VDD), rows stay LOW (shorted to GND)
+ *        → key cap charges: column=VDD, row=GND, Q=C_key*VDD
+ *     3. Wait 1us for column settle through mux
+ *     4. Switch target row to analog input (high-Z) — instant release
+ *        → charge redistributes: V_row = VDD*C_key/(C_key+C_self)
+ *     5. ADC sample IMMEDIATELY with shortest 1.5-cycle sample (125ns)
+ *        → pressed key = large positive ADC value
+ *     6. Discharge and repeat
  *
- * Pressed key → more C on that row/col → longer charge → higher total.
+ * This creates a DC voltage step (not transient), captured before
+ * pin leakage can affect it (~125ns vs 20us in v3).
  */
 
 #include "matrix.h"
@@ -32,28 +37,29 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
 /* ── Tuning ──────────────────────────────────────────────────────────── */
-#define N_OSC                40
-#define THRESHOLD_DELTA      500
-#define DISCHARGE_NS         200    /* discharge time in ~14ns units (nops) */
-#define SETTLE_NOP           2
-#define BASELINE_SAMPLES     8
-#define TIMEOUT_CYCLES       3000u
+#define THRESHOLD_DELTA      300
+#define DISCHARGE_US         5
+#define CHARGE_US            1
+#define BASELINE_SAMPLES     16
 #define DEBUG_PRINT_INTERVAL 15
 
 /* ── STM32F103 ───────────────────────────────────────────────────────── */
 #define EC_RCC_APB2ENR  (*(volatile uint32_t *)0x40021018)
+#define EC_RCC_CFGR     (*(volatile uint32_t *)0x40021004)
+
+#define EC_ADC1_SR      (*(volatile uint32_t *)0x40012400)
+#define EC_ADC1_CR1     (*(volatile uint32_t *)0x40012404)
+#define EC_ADC1_CR2     (*(volatile uint32_t *)0x40012408)
+#define EC_ADC1_SMPR2   (*(volatile uint32_t *)0x40012410)
+#define EC_ADC1_SQR1    (*(volatile uint32_t *)0x40012428)
+#define EC_ADC1_SQR3    (*(volatile uint32_t *)0x4001242C)
+#define EC_ADC1_DR      (*(volatile uint32_t *)0x4001244C)
+
 #define EC_GPIOA_CRL    (*(volatile uint32_t *)0x40010800)
 #define EC_GPIOA_BSRR   (*(volatile uint32_t *)0x40010810)
-#define EC_GPIOA_IDR    (*(volatile uint32_t *)0x40010808)
-#define EC_GPIOA_ODR    (*(volatile uint32_t *)0x4001080C)
 
 #define EC_PA1_MASK     0x000000F0u
 #define EC_ROW_MASK     0xFFFFFF00u
-#define EC_ROW_BITS     (0x3Fu << 2)
-
-#define EC_DEMCR        (*(volatile uint32_t *)0xE000EDFC)
-#define EC_DWT_CTRL     (*(volatile uint32_t *)0xE0001000)
-#define EC_DWT_CYCCNT   (*(volatile uint32_t *)0xE0001004)
 
 /* ── State ───────────────────────────────────────────────────────────── */
 static uint16_t baseline[ROW_COUNT][COL_COUNT];
@@ -61,79 +67,115 @@ static uint16_t cap_raw[ROW_COUNT][COL_COUNT];
 static int16_t  cap_diff[ROW_COUNT][COL_COUNT];
 static uint8_t  scan_counter = 0;
 
-/* ── Low-level helpers ───────────────────────────────────────────────── */
-
-static inline void dwt_init(void) {
-    EC_DEMCR  |= (1u << 24);
-    EC_DWT_CYCCNT = 0;
-    EC_DWT_CTRL |= (1u << 0);
-}
+/* ── PA1 ─────────────────────────────────────────────────────────────── */
 
 static inline void pa1_low(void) {
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
     EC_GPIOA_BSRR = (1u << 17);
 }
 
-/* All rows: push-pull 50MHz, driven LOW */
-static inline void rows_discharge(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
-    EC_GPIOA_ODR &= ~EC_ROW_BITS;  /* ensure ODR bits are 0 */
-    EC_GPIOA_BSRR = (0x3Fu << 18); /* BR2..BR7 — drive LOW */
+static inline void pa1_high(void) {
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
+    EC_GPIOA_BSRR = (1u << 1);
 }
 
-/* All rows: input with internal pull-up */
-static inline void rows_pullup(void) {
-    /* First ensure ODR = 1 for pull-up, THEN switch mode (avoids pull-down glitch) */
-    EC_GPIOA_ODR |= EC_ROW_BITS;
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x88888800u);
+/* PA1 analog input (high-Z, Schmitt trigger off) */
+static inline void pa1_hiz(void) {
+    EC_GPIOA_CRL &= ~EC_PA1_MASK;  /* CNF=00 MODE=00 */
 }
+
+/* ── Rows ────────────────────────────────────────────────────────────── */
+
+static inline void all_rows_low(void) {
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
+    EC_GPIOA_BSRR = (0x3Fu << 18);
+}
+
+/* Switch ONE row to analog input (high-Z). Other rows stay output LOW. */
+static inline void row_analog(uint8_t row) {
+    uint8_t shift = (row + 2) * 4;
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~(0xFu << shift));  /* CNF=00 MODE=00 = analog */
+}
+
+static inline void all_rows_analog(void) {
+    EC_GPIOA_CRL &= ~EC_ROW_MASK;
+}
+
+/* ── Mux ─────────────────────────────────────────────────────────────── */
 
 static void mux_set(uint8_t ch) {
     for (int i = 0; i < 4; i++)
         gpio_write_pin(mux_pins[i], (ch >> i) & 1);
 }
 
-/* ── Simultaneous 6-row relaxation oscillator ────────────────────────── */
+/* ── ADC ─────────────────────────────────────────────────────────────── */
 
-static void measure_column(uint8_t col, uint16_t *results) {
-    uint32_t totals[6] = {0};
+static void adc_init(void) {
+    EC_RCC_APB2ENR |= (1u << 2) | (1u << 3) | (1u << 9);
+    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14); /* PCLK2/6 = 12MHz */
 
-    for (int osc = 0; osc < N_OSC; osc++) {
-        /* Phase 1: discharge all rows */
-        rows_discharge();
-        for (volatile int d = 0; d < DISCHARGE_NS; d++) __asm__("nop");
+    EC_ADC1_CR2 = 1u << 0;
+    wait_ms(2);
 
-        /* Phase 2: switch all rows to pull-up input simultaneously */
-        rows_pullup();
-        for (volatile int d = 0; d < SETTLE_NOP; d++) __asm__("nop");
+    EC_ADC1_CR2 |= (1u << 3);
+    { volatile uint32_t t = 50000; while ((EC_ADC1_CR2 & (1u << 3)) && --t); }
+    EC_ADC1_CR2 |= (1u << 2);
+    { volatile uint32_t t = 200000; while ((EC_ADC1_CR2 & (1u << 2)) && --t); }
 
-        /* Phase 3: poll IDR, record when each row crosses VIH */
-        uint32_t t0 = EC_DWT_CYCCNT;
-        uint8_t remaining = 0x3Fu;
-        uint16_t t[6];
-        for (int r = 0; r < 6; r++) t[r] = TIMEOUT_CYCLES;
+    /* Single conversion, no scan, no DMA */
+    EC_ADC1_CR1 = 0;
+    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17); /* ADON|EXTTRIG|SWSTART */
 
-        while (remaining) {
-            uint32_t now = EC_DWT_CYCCNT;
-            uint32_t elapsed = now - t0;
-            if ((int32_t)(elapsed - TIMEOUT_CYCLES) > 0) break;
+    /* Shortest sample time: 1.5 cycles for ALL channels */
+    EC_ADC1_SMPR2 = 0x00000000;
 
-            uint8_t pins = (uint8_t)((EC_GPIOA_IDR >> 2) & 0x3Fu);
-            uint8_t ready = pins & remaining;
-            if (ready) {
-                for (int r = 0; r < 6; r++) {
-                    if (ready & (1u << r)) {
-                        t[r] = (uint16_t)elapsed;
-                        remaining &= (uint8_t)~(1u << r);
-                    }
-                }
-            }
-        }
-        for (int r = 0; r < 6; r++) totals[r] += t[r];
-    }
+    /* One conversion in sequence */
+    EC_ADC1_SQR1 = 0;  /* L=0 → 1 conversion */
+}
 
-    for (int r = 0; r < 6; r++)
-        results[r] = (uint16_t)(totals[r] / N_OSC);  /* average per-cycle */
+static inline uint16_t adc_read_channel(uint8_t ch) {
+    EC_ADC1_SQR3 = ch;  /* rank1 = selected channel */
+    EC_ADC1_CR2 |= (1u << 22);  /* SWSTART */
+    volatile uint32_t t = 100000;
+    while (!(EC_ADC1_SR & (1u << 1)) && --t);
+    return (uint16_t)(EC_ADC1_DR & 0xFFFu);
+}
+
+/* ── Measure one key ─────────────────────────────────────────────────── */
+
+static uint16_t measure_key(uint8_t col, uint8_t row) {
+    uint8_t adc_ch = row + 2;  /* PA2=IN2, ..., PA7=IN7 */
+
+    /* Phase 1: discharge — PA1 LOW output, all rows LOW output */
+    pa1_low();
+    all_rows_low();
+    wait_us(DISCHARGE_US);
+
+    /* Phase 2: charge key cap — PA1 HIGH, target row stays LOW (GND)
+     * Column charges to VDD through mux; key cap sees VDD across it. */
+    pa1_high();
+    wait_us(CHARGE_US);
+
+    /* Phase 3: CRITICAL — release PA1 to high-Z FIRST, so column floats.
+     * If PA1 stays actively driven HIGH, the voltage is clamped and
+     * charge redistribution cannot happen. */
+    pa1_hiz();
+
+    /* Phase 4: release target row to analog high-Z.
+     * Charge redistributes between C_key (at VDD) and C_row_self (at 0V).
+     * V_row = VDD * C_key / (C_key + C_row_self).
+     * Pressed key = larger C_key = higher V_row. */
+    row_analog(row);
+
+    /* Phase 5: ADC sample immediately (S/H aperture ~125ns at 1.5 cycles).
+     * The voltage is DC-stable until leakage drains it (~tens of us). */
+    uint16_t val = adc_read_channel(adc_ch);
+
+    /* Phase 6: discharge for next key */
+    pa1_low();
+    all_rows_low();
+
+    return val;
 }
 
 /* ── Baseline ────────────────────────────────────────────────────────── */
@@ -142,27 +184,22 @@ static void calibrate_baseline(void) {
     gpio_write_pin(MUX_EN_PIN, 0);
     wait_us(100);
 
-    uint16_t results[6];
     for (uint8_t col = 0; col < COL_COUNT; col++) {
         mux_set(col);
-        pa1_low();
-        wait_us(5);
-
-        uint32_t sums[6] = {0};
-        for (int s = 0; s < BASELINE_SAMPLES; s++) {
-            measure_column(col, results);
-            for (int r = 0; r < 6; r++) sums[r] += results[r];
+        for (uint8_t row = 0; row < ROW_COUNT; row++) {
+            uint32_t sum = 0;
+            for (int s = 0; s < BASELINE_SAMPLES; s++)
+                sum += measure_key(col, row);
+            baseline[row][col] = (uint16_t)(sum / BASELINE_SAMPLES);
         }
-        for (int r = 0; r < 6; r++)
-            baseline[r][col] = (uint16_t)(sums[r] / BASELINE_SAMPLES);
     }
 }
 
 /* ── Debug ───────────────────────────────────────────────────────────── */
 
 static void debug_print(void) {
-    uint16_t max_raw = 0, min_raw = 65535;
-    int16_t  max_diff = -32768;
+    uint16_t max_raw = 0, min_raw = 4095;
+    int16_t  max_diff = -4096;
     uint8_t  mr_r = 0, mr_c = 0, md_r = 0, md_c = 0;
 
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
@@ -173,21 +210,21 @@ static void debug_print(void) {
         }
     }
 
-    xprintf("EC87v35 cyc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d n=%d\n",
-            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c, THRESHOLD_DELTA, N_OSC);
+    xprintf("EC87v36 adc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d\n",
+            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c, THRESHOLD_DELTA);
 
     print("RAW:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++)
-            xprintf(" %5u", cap_raw[r][c]);
+            xprintf(" %4u", cap_raw[r][c]);
         print("\n");
     }
     print("DIFF:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++)
-            xprintf(" %5d", cap_diff[r][c]);
+            xprintf(" %4d", cap_diff[r][c]);
         print("\n");
     }
     print("\n");
@@ -199,7 +236,7 @@ void matrix_init_custom(void) {
     debug_enable = true;
     debug_matrix = true;
 
-    print("\nEC87 v3.5 booting (simultaneous 6-row oscillator)...\n");
+    print("\nEC87 v3.6 booting (charge redistribution ADC)...\n");
 
     EC_RCC_APB2ENR |= (1u << 2) | (1u << 3);
 
@@ -210,21 +247,20 @@ void matrix_init_custom(void) {
     gpio_set_pin_output(MUX_EN_PIN);
     gpio_write_pin(MUX_EN_PIN, 1);
 
-    dwt_init();
-    print("DWT ready\n");
+    adc_init();
+    print("ADC ready (1.5cyc sample)\n");
 
     gpio_write_pin(MUX_EN_PIN, 0);
     print("Calibrating...\n");
     calibrate_baseline();
-    rows_discharge();
+    all_rows_low();
     gpio_write_pin(MUX_EN_PIN, 1);
 
-    print("EC87 v3.5 READY\n\n");
+    print("EC87 v3.6 READY\n\n");
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     bool changed = false;
-    uint16_t results[6];
 
     gpio_write_pin(MUX_EN_PIN, 0);
 
@@ -233,11 +269,9 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
 
     for (uint8_t col = 0; col < COL_COUNT; col++) {
         mux_set(col);
-        pa1_low();
-        measure_column(col, results);
 
         for (uint8_t row = 0; row < ROW_COUNT; row++) {
-            uint16_t v = results[row];
+            uint16_t v = measure_key(col, row);
             int16_t  diff = (int16_t)v - (int16_t)baseline[row][col];
 
             cap_raw[row][col]  = v;
@@ -247,13 +281,13 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
                 current_matrix[row] |= (matrix_row_t)1 << col;
 
             if (diff < THRESHOLD_DELTA) {
-                if      (v > baseline[row][col]) baseline[row][col]++;
-                else if (v < baseline[row][col]) baseline[row][col]--;
+                if      (v > baseline[row][col]) baseline[row][col] += 2;
+                else if (v < baseline[row][col]) baseline[row][col] -= 2;
             }
         }
     }
 
-    rows_discharge();
+    all_rows_low();
     gpio_write_pin(MUX_EN_PIN, 1);
 
     static matrix_row_t prev[ROW_COUNT];

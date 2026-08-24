@@ -1,23 +1,15 @@
 /* Copyright 2026 micahyy
  *
- * EC87 capacitive matrix — DRIVE-COLUMN / SENSE-ROW method (DEBUG)
+ * EC87 capacitive matrix — DRIVE-COLUMN / SENSE-ROW v3.1 (DEBUG)
  *
- * Previous approaches (sense COM via ADC, RC timing on COM) all failed
- * because the 74HC4067 on-resistance + COM-line parasitics dominated
- * the measurement, swamping any key-capacitance delta.
+ * PA1 (COM through 74HC4067) = push-pull output, drives selected column
+ * PA2-PA7 = ADC1_IN2..IN7, analog inputs sensing the 6 rows
  *
- * New topology:
- *   PA1 (COM) = push-pull OUTPUT, drives the selected column HIGH
- *   PA2-PA7   = analog INPUTS (ADC1_IN2..IN7), sense the 6 rows
- *
- * For each of 16 columns:
- *   1. Drive all rows + PA1 LOW to discharge
- *   2. Switch rows to analog (high-Z)
- *   3. Drive PA1 HIGH -> rising edge couples through each key cap
- *   4. ADC-scan all 6 rows; pressed key = higher coupled voltage
- *   5. Pull PA1 LOW, discharge, next column
- *
- * Pressed key has larger C → larger V on that row → higher ADC.
+ * Fixes vs v3:
+ *  - ADC CR1 SCAN bit set (was 0 → only ch2 converted, other 5 timed out)
+ *  - Calibration loops have timeout
+ *  - Baseline samples reduced 32→8 for fast startup
+ *  - Early boot print to confirm firmware alive
  */
 
 #include "matrix.h"
@@ -34,11 +26,12 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
 /* ── Tuning ──────────────────────────────────────────────────────────── */
-#define THRESHOLD_DELTA      150
+#define THRESHOLD_DELTA      200
 #define DISCHARGE_US         5
-#define SETTLE_US            2
-#define BASELINE_SAMPLES     32
-#define DEBUG_PRINT_INTERVAL 15
+#define SETTLE_US            3
+#define BASELINE_SAMPLES     8
+#define DEBUG_PRINT_INTERVAL 20
+#define ADC_TIMEOUT          20000
 
 /* ── STM32F103 registers ─────────────────────────────────────────────── */
 #define EC_RCC_APB2ENR  (*(volatile uint32_t *)0x40021018)
@@ -55,7 +48,6 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define EC_GPIOA_CRL    (*(volatile uint32_t *)0x40010800)
 #define EC_GPIOA_BSRR   (*(volatile uint32_t *)0x40010810)
 
-/* PA1 = bit4-7 in CRL; PA2-PA7 = bits 8-31 */
 #define EC_PA1_MASK     0x000000F0u
 #define EC_ROW_MASK     0xFFFFFF00u
 
@@ -69,23 +61,21 @@ static uint8_t  scan_counter = 0;
 
 static inline void pa1_output_low(void) {
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
-    EC_GPIOA_BSRR = (1u << 17);  /* BR1 */
+    EC_GPIOA_BSRR = (1u << 17);
 }
 
 static inline void pa1_output_high(void) {
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
-    EC_GPIOA_BSRR = (1u << 1);   /* BS1 */
+    EC_GPIOA_BSRR = (1u << 1);
 }
 
 /* ── Row pins PA2-PA7 ────────────────────────────────────────────────── */
 
-/* All rows: push-pull 50MHz output, driven LOW (discharge) */
 static inline void rows_discharge(void) {
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
-    EC_GPIOA_BSRR = (0x3Fu << 18);  /* BR2..BR7 */
+    EC_GPIOA_BSRR = (0x3Fu << 18);
 }
 
-/* All rows: analog input (high-Z) */
 static inline void rows_sense(void) {
     EC_GPIOA_CRL &= ~EC_ROW_MASK;
 }
@@ -97,57 +87,63 @@ static void mux_set_channel(uint8_t ch) {
         gpio_write_pin(mux_pins[i], (ch >> i) & 1);
 }
 
-/* ── ADC (scan channels 2-7 for rows 0-5) ───────────────────────────── */
+/* ── ADC ─────────────────────────────────────────────────────────────── */
 
 static void adc_init(void) {
-    EC_RCC_APB2ENR |= (1u << 2) | (1u << 9);   /* IOPAEN + ADC1EN */
-    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14); /* ADCCLK = PCLK2/6 = 12MHz */
+    /* GPIOA + GPIOB + ADC1 clocks */
+    EC_RCC_APB2ENR |= (1u << 2) | (1u << 3) | (1u << 9);
+    /* ADCCLK = PCLK2/6 = 12 MHz */
+    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14);
 
+    /* Power on ADC */
     EC_ADC1_CR2 = 1u << 0;
-    wait_ms(1);
-    EC_ADC1_CR2 |= (1u << 3);  /* RSTCAL */
-    while (EC_ADC1_CR2 & (1u << 3));
-    EC_ADC1_CR2 |= (1u << 2);  /* CAL */
-    while (EC_ADC1_CR2 & (1u << 2));
+    wait_ms(2);
 
-    /* ADON | EXTTRIG | EXTSEL=111 (SWSTART) | scan mode via SQR1 */
+    /* Reset calibration */
+    EC_ADC1_CR2 |= (1u << 3);
+    { volatile uint32_t t = 50000; while ((EC_ADC1_CR2 & (1u << 3)) && --t); }
+
+    /* Calibration */
+    EC_ADC1_CR2 |= (1u << 2);
+    { volatile uint32_t t = 200000; while ((EC_ADC1_CR2 & (1u << 2)) && --t); }
+
+    /* CR1: SCAN mode (bit8) = 1 */
+    EC_ADC1_CR1 = (1u << 8);
+
+    /* CR2: ADON | EXTTRIG | EXTSEL=111 (SWSTART), CONT=0 */
     EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);
-    EC_ADC1_CR1 = 0;  /* single scan, no DMA */
 
-    /* Sample time: 55.5 cycles for channels 2-7 */
-    EC_ADC1_SMPR2 = 0xFFFFFFFFu;  /* all channels 2-9 = 55.5 cycles */
+    /* Sample time 239.5 cycles for ch0-9 (slowest, most accurate) */
+    EC_ADC1_SMPR2 = 0xFFFFFFFFu;
 
-    /* Sequence: 6 conversions, channels 2,3,4,5,6,7 */
-    EC_ADC1_SQR1 = (5u << 20);    /* L[3:0] = 5 -> 6 conversions */
-    EC_ADC1_SQR3 = (2u)        /* rank 1: IN2 (row0 = PA2) */
-                 | (3u << 5)   /* rank 2: IN3 (row1 = PA3) */
-                 | (4u << 10)  /* rank 3: IN4 (row2 = PA4) */
-                 | (5u << 15)  /* rank 4: IN5 (row3 = PA5) */
-                 | (6u << 20)  /* rank 5: IN6 (row4 = PA6) */
-                 | (7u << 25); /* rank 6: IN7 (row5 = PA7) */
+    /* 6 conversions in sequence */
+    EC_ADC1_SQR1 = (5u << 20);
+    EC_ADC1_SQR3 = (2u)        /* rank1 IN2 (row0 PA2) */
+                 | (3u << 5)   /* rank2 IN3 (row1 PA3) */
+                 | (4u << 10)  /* rank3 IN4 (row2 PA4) */
+                 | (5u << 15)  /* rank4 IN5 (row3 PA5) */
+                 | (6u << 20)  /* rank5 IN6 (row4 PA6) */
+                 | (7u << 25); /* rank6 IN7 (row5 PA7) */
 }
 
 static void adc_scan_rows(uint16_t *out) {
-    /* Restart sequence every call to avoid continuous-mode aliasing */
     EC_ADC1_CR2 |= (1u << 22);  /* SWSTART */
     for (int i = 0; i < 6; i++) {
-        uint32_t t = 200000;
+        volatile uint32_t t = ADC_TIMEOUT;
         while (!(EC_ADC1_SR & (1u << 1)) && --t);
         out[i] = (uint16_t)(EC_ADC1_DR & 0xFFFu);
     }
 }
 
-/* ── Read one column (all 6 rows) ────────────────────────────────────── */
+/* ── Read one column ─────────────────────────────────────────────────── */
 
 static void read_column(uint8_t col, uint16_t *vals) {
     mux_set_channel(col);
 
-    /* Discharge everything */
     pa1_output_low();
     rows_discharge();
     wait_us(DISCHARGE_US);
 
-    /* Float rows, then pulse column HIGH */
     rows_sense();
     pa1_output_high();
     wait_us(SETTLE_US);
@@ -155,14 +151,13 @@ static void read_column(uint8_t col, uint16_t *vals) {
     adc_scan_rows(vals);
 
     pa1_output_low();
-    /* Keep rows discharged until next column */
     rows_discharge();
 }
 
 /* ── Baseline ────────────────────────────────────────────────────────── */
 
 static void calibrate_baseline(void) {
-    gpio_write_pin(MUX_EN_PIN, 0);  /* enable mux */
+    gpio_write_pin(MUX_EN_PIN, 0);
     wait_us(100);
 
     uint16_t vals[6];
@@ -177,7 +172,7 @@ static void calibrate_baseline(void) {
     }
 }
 
-/* ── Debug print ─────────────────────────────────────────────────────── */
+/* ── Debug ───────────────────────────────────────────────────────────── */
 
 static void debug_print(void) {
     uint16_t max_raw = 0, min_raw = 4095;
@@ -186,27 +181,25 @@ static void debug_print(void) {
 
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         for (uint8_t c = 0; c < COL_COUNT; c++) {
-            uint16_t v = cap_raw[r][c];
-            int16_t  d = cap_diff[r][c];
-            if (v > max_raw) { max_raw = v; mr_r = r; mr_c = c; }
-            if (v < min_raw) min_raw = v;
-            if (d > max_diff) { max_diff = d; md_r = r; md_c = c; }
+            if (cap_raw[r][c] > max_raw) { max_raw = cap_raw[r][c]; mr_r = r; mr_c = c; }
+            if (cap_raw[r][c] < min_raw) min_raw = cap_raw[r][c];
+            if (cap_diff[r][c] > max_diff) { max_diff = cap_diff[r][c]; md_r = r; md_c = c; }
         }
     }
 
-    xprintf("EC87v3 raw %u-%u @R%uC%u | Dmax=%d @R%uC%u\n",
+    xprintf("EC87v31 raw %u-%u @R%uC%u | Dmax=%d @R%uC%u\n",
             min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c);
 
     print("RAW:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        xprintf("R%u:", r);
+        xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++)
             xprintf(" %4u", cap_raw[r][c]);
         print("\n");
     }
     print("DIFF:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        xprintf("R%u:", r);
+        xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++)
             xprintf(" %4d", cap_diff[r][c]);
         print("\n");
@@ -214,35 +207,35 @@ static void debug_print(void) {
     print("\n");
 }
 
-/* ── QMK interface ───────────────────────────────────────────────────── */
+/* ── QMK ─────────────────────────────────────────────────────────────── */
 
 void matrix_init_custom(void) {
     debug_enable = true;
     debug_matrix = true;
-    wait_ms(200);
 
-    EC_RCC_APB2ENR |= (1u << 2);  /* IOPAEN */
+    print("\nEC87 v3.1 booting...\n");
+
+    EC_RCC_APB2ENR |= (1u << 2) | (1u << 3);  /* GPIOA + GPIOB */
 
     for (int i = 0; i < 4; i++) {
         gpio_set_pin_output(mux_pins[i]);
         gpio_write_pin(mux_pins[i], 0);
     }
     gpio_set_pin_output(MUX_EN_PIN);
-    gpio_write_pin(MUX_EN_PIN, 1);  /* disabled during init */
+    gpio_write_pin(MUX_EN_PIN, 1);
 
+    print("ADC init...\n");
     adc_init();
+    print("Baseline calibration...\n");
     calibrate_baseline();
-
-    print("\nEC87 DRIVE-COLUMN SENSE-ROW v3 READY\n");
-    print("PA1 drives column, ADC reads PA2-PA7 (rows).\n");
-    print("Pressed = higher ADC value (positive diff).\n\n");
+    print("EC87 v3.1 READY - drive col PA1, sense rows PA2-7 via ADC\n\n");
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     bool changed = false;
     uint16_t vals[6];
 
-    gpio_write_pin(MUX_EN_PIN, 0);  /* enable mux */
+    gpio_write_pin(MUX_EN_PIN, 0);
 
     for (uint8_t row = 0; row < ROW_COUNT; row++)
         current_matrix[row] = 0;
@@ -260,7 +253,6 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
             if (diff > THRESHOLD_DELTA)
                 current_matrix[row] |= (matrix_row_t)1 << col;
 
-            /* Slow baseline tracking when not pressed */
             if (diff < THRESHOLD_DELTA) {
                 if      (v > baseline[row][col]) baseline[row][col]++;
                 else if (v < baseline[row][col]) baseline[row][col]--;
@@ -268,10 +260,8 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
         }
     }
 
-    gpio_write_pin(MUX_EN_PIN, 1);  /* disable mux */
+    gpio_write_pin(MUX_EN_PIN, 1);
 
-    /* Determine change by comparing with previous scan.
-     * QMK lite custom matrix does not provide previous state, so keep our own. */
     static matrix_row_t prev[ROW_COUNT];
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         if (current_matrix[r] != prev[r]) {

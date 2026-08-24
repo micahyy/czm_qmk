@@ -26,8 +26,14 @@ jobs:
           pip3 install qmk
           qmk --version || true
 
-      - name: Build EC87 debug
+      - name: Build EC87 default (bin)
         run: make czmao/ec87:default COLOR=false
+
+      - name: Build EC87 default (UF2)
+        run: make czmao/ec87:default:uf2 COLOR=false
+
+      - name: Build DS60 via (UF2)
+        run: make czmao/ds60:via:uf2 COLOR=false
 
       - name: List build outputs
         run: |
@@ -37,7 +43,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: czmao_ec87_firmware
+          name: czmao_firmware
           path: |
             *.bin
             *.hex

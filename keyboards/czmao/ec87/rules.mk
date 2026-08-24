@@ -3,8 +3,9 @@ LTO_ENABLE = yes
 CUSTOM_MATRIX = lite
 SRC += matrix.c
 
-CONSOLE_ENABLE = yes
+CONSOLE_ENABLE = no
+MOUSEKEY_ENABLE = no
 
-# Use 16KB UF2 bootloader (uf2boot) instead of 8KB stm32duino
+# 16KB UF2 bootloader, app only 48KB flash
 MCU_LDSCRIPT = STM32F103x8_uf2boot
-OPT = 2
+OPT = s

@@ -1,28 +1,4 @@
-/* Copyright 2026 micahyy
- *
- * EC87 capacitive matrix — CAPACITIVE COUPLING v3.9
- *
- * All previous versions (v3.0-v3.8) had a fundamental topology error:
- *   The target row was held LOW (driven to GND) during the charge phase.
- *   By charge conservation, after releasing the row to high-Z, the row
- *   voltage is always 0V regardless of C_key — no signal could ever be
- *   measured.
- *
- * v3.9 correct sequence (capacitive coupling / charge sharing):
- *   1. Discharge: PA1=LOW, all rows=LOW
- *   2. Target row → analog (HIGH-Z/floating); other rows stay LOW (shield)
- *   3. PA1 → HIGH: voltage step couples through C_key to floating row
- *   4. Settle: V_row = VDD * C_key / (C_row + C_key + C_adc_sh)
- *   5. ADC read row
- *   6. Discharge
- *
- * PA1 stays driven HIGH through ADC read — C_key blocks DC, no path.
- * 1MΩ pull-down on COM is overpowered by PA1 push-pull, no effect.
- *
- * No external amplifier needed. ADC S/H cap (~8pF) adds to C_parasitic
- * but the signal is still measurable.
- */
-
+/* EC87 diagnostic firmware — test GPIO/ADC configurations to locate DC path */
 #include "matrix.h"
 #include "gpio.h"
 #include "wait.h"
@@ -36,18 +12,8 @@
 static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
-/* ── Tuning ──────────────────────────────────────────────────────────── */
-#define THRESHOLD_DELTA      200
-#define DISCHARGE_US         5
-#define CHARGE_US            3
-#define SETTLE_US            2
-#define BASELINE_SAMPLES     16
-#define DEBUG_PRINT_INTERVAL 15
-
-/* ── STM32F103 registers ─────────────────────────────────────────────── */
 #define EC_RCC_APB2ENR  (*(volatile uint32_t *)0x40021018)
 #define EC_RCC_CFGR     (*(volatile uint32_t *)0x40021004)
-
 #define EC_ADC1_SR      (*(volatile uint32_t *)0x40012400)
 #define EC_ADC1_CR1     (*(volatile uint32_t *)0x40012404)
 #define EC_ADC1_CR2     (*(volatile uint32_t *)0x40012408)
@@ -55,241 +21,168 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define EC_ADC1_SQR1    (*(volatile uint32_t *)0x40012428)
 #define EC_ADC1_SQR3    (*(volatile uint32_t *)0x4001242C)
 #define EC_ADC1_DR      (*(volatile uint32_t *)0x4001244C)
-
 #define EC_GPIOA_CRL    (*(volatile uint32_t *)0x40010800)
+#define EC_GPIOA_CRH    (*(volatile uint32_t *)0x40010804)
 #define EC_GPIOA_BSRR   (*(volatile uint32_t *)0x40010810)
-
-#define EC_PA1_MASK     0x000000F0u
-#define EC_ROW_MASK     0xFFFFFF00u
-
-/* ── State ───────────────────────────────────────────────────────────── */
-static uint16_t baseline[ROW_COUNT][COL_COUNT];
-static uint16_t cap_raw[ROW_COUNT][COL_COUNT];
-static int16_t  cap_diff[ROW_COUNT][COL_COUNT];
-static uint8_t  scan_counter = 0;
-
-/* ── PA1 modes ───────────────────────────────────────────────────────── */
-
-static inline void pa1_low(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
-    EC_GPIOA_BSRR = (1u << 17);
-}
-
-static inline void pa1_high(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
-    EC_GPIOA_BSRR = (1u << 1);
-}
-
-/* ── Rows ────────────────────────────────────────────────────────────── */
-
-/* All 6 rows (PA2-PA7) push-pull output LOW.
- * CRL bits 8-31: 0x333333 at byte offset 1 = 0x33333300 */
-static inline void all_rows_low(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
-    EC_GPIOA_BSRR = (0x3Fu << 18);
-}
-
-/* One row → analog input (high-Z); CNF=00 MODE=00.
- * Other rows stay as push-pull LOW (active shield). */
-static inline void row_floating(uint8_t row) {
-    uint8_t shift = (row + 2) * 4;
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~(0xFu << shift));
-}
-
-/* ── Mux ─────────────────────────────────────────────────────────────── */
+#define EC_GPIOA_ODR    (*(volatile uint32_t *)0x4001080C)
 
 static void mux_set(uint8_t ch) {
     for (int i = 0; i < 4; i++)
         gpio_write_pin(mux_pins[i], (ch >> i) & 1);
 }
 
-/* ── ADC ─────────────────────────────────────────────────────────────── */
-
 static void adc_init(void) {
-    EC_RCC_APB2ENR |= (1u << 2) | (1u << 3) | (1u << 9);
-    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14);
-
-    EC_ADC1_CR2 = (1u << 0);
-    wait_ms(2);
-
-    EC_ADC1_CR2 |= (1u << 3);
-    { volatile uint32_t t = 50000; while ((EC_ADC1_CR2 & (1u << 3)) && --t); }
-    EC_ADC1_CR2 |= (1u << 2);
-    { volatile uint32_t t = 200000; while ((EC_ADC1_CR2 & (1u << 2)) && --t); }
-
+    EC_RCC_APB2ENR |= (1u<<2)|(1u<<3)|(1u<<9);
+    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u<<14)) | (2u<<14);
+    EC_ADC1_CR2 = (1u<<0); wait_ms(2);
+    EC_ADC1_CR2 |= (1u<<3);
+    { volatile uint32_t t=50000; while((EC_ADC1_CR2&(1u<<3))&&--t); }
+    EC_ADC1_CR2 |= (1u<<2);
+    { volatile uint32_t t=200000; while((EC_ADC1_CR2&(1u<<2))&&--t); }
     EC_ADC1_CR1 = 0;
-    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);
-
-    /* 55.5 cycle sample time for ALL channels */
+    EC_ADC1_CR2 = (1u<<0)|(1u<<20)|(7u<<17);
     EC_ADC1_SMPR2 = 0x2DB6DB6D;
-
     EC_ADC1_SQR1 = 0;
 }
 
-static inline uint16_t adc_read_channel(uint8_t ch) {
+static uint16_t adc_read(uint8_t ch) {
     EC_ADC1_SQR3 = ch;
-    EC_ADC1_CR2 |= (1u << 22);
-    volatile uint32_t t = 100000;
-    while (!(EC_ADC1_SR & (1u << 1)) && --t);
+    EC_ADC1_CR2 |= (1u<<22);
+    volatile uint32_t t=100000;
+    while(!(EC_ADC1_SR&(1u<<1))&&--t);
     return (uint16_t)(EC_ADC1_DR & 0xFFFu);
 }
 
-/* ── Measure one key ─────────────────────────────────────────────────── */
-
-static uint16_t measure_key(uint8_t col, uint8_t row) {
-    uint8_t adc_ch = row + 2;
-
-    /* Phase 1: discharge everything to 0V */
-    pa1_low();
-    all_rows_low();
-    wait_us(DISCHARGE_US);
-
-    /* Phase 2: release TARGET row to float.
-     * Other rows stay driven LOW as active shields. */
-    row_floating(row);
-
-    /* Phase 3: PA1 goes HIGH — voltage step couples through C_key
-     * to the floating row node. PA1 stays driven HIGH (C_key blocks DC).
-     * V_row settles at: VDD * C_key / (C_row + C_key + C_adc_sh) */
-    pa1_high();
-
-    /* Phase 4: settle through mux R_on (~70Ω) */
-    wait_us(CHARGE_US + SETTLE_US);
-
-    /* Phase 5: ADC read */
-    uint16_t val = adc_read_channel(adc_ch);
-
-    /* Phase 6: discharge */
-    pa1_low();
-    all_rows_low();
-
-    return val;
+/* GPIO helpers */
+static void set_pin_output(uint8_t pin, uint8_t high) {
+    uint8_t sh = pin * 4;
+    volatile uint32_t *cr = (pin < 8) ? &EC_GPIOA_CRL : &EC_GPIOA_CRH;
+    if (pin >= 8) sh -= 32;
+    uint32_t mask = 0xFu << sh;
+    *cr = (*cr & ~mask) | (0x3u << sh);
+    if (high) EC_GPIOA_BSRR = (1u << pin);
+    else      EC_GPIOA_BSRR = (1u << (pin+16));
 }
 
-/* ── Baseline ────────────────────────────────────────────────────────── */
-
-static void calibrate_baseline(void) {
-    gpio_write_pin(MUX_EN_PIN, 0);
-    wait_us(100);
-
-    for (uint8_t col = 0; col < COL_COUNT; col++) {
-        mux_set(col);
-        for (uint8_t row = 0; row < ROW_COUNT; row++) {
-            uint32_t sum = 0;
-            for (int s = 0; s < BASELINE_SAMPLES; s++)
-                sum += measure_key(col, row);
-            baseline[row][col] = (uint16_t)(sum / BASELINE_SAMPLES);
-        }
-    }
+static void set_pin_analog(uint8_t pin) {
+    uint8_t sh = pin * 4;
+    volatile uint32_t *cr = (pin < 8) ? &EC_GPIOA_CRL : &EC_GPIOA_CRH;
+    if (pin >= 8) sh -= 32;
+    *cr = (*cr & ~(0xFu << sh));
 }
 
-/* ── Debug ───────────────────────────────────────────────────────────── */
-
-static void debug_print(void) {
-    uint16_t max_raw = 0, min_raw = 4095;
-    int16_t  max_diff = -4096;
-    uint8_t  mr_r = 0, mr_c = 0, md_r = 0, md_c = 0;
-
-    for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        for (uint8_t c = 0; c < COL_COUNT; c++) {
-            if (cap_raw[r][c] > max_raw) { max_raw = cap_raw[r][c]; mr_r = r; mr_c = c; }
-            if (cap_raw[r][c] < min_raw) min_raw = cap_raw[r][c];
-            if (cap_diff[r][c] > max_diff) { max_diff = cap_diff[r][c]; md_r = r; md_c = c; }
-        }
-    }
-
-    xprintf("EC87v39 adc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d\n",
-            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c, THRESHOLD_DELTA);
-
-    print("RAW:\n");
-    for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        xprintf("R%d:", r);
-        for (uint8_t c = 0; c < COL_COUNT; c++)
-            xprintf(" %4u", cap_raw[r][c]);
-        print("\n");
-    }
-    print("DIFF:\n");
-    for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        xprintf("R%d:", r);
-        for (uint8_t c = 0; c < COL_COUNT; c++)
-            xprintf(" %4d", cap_diff[r][c]);
-        print("\n");
-    }
-    print("\n");
+static void set_pin_input_pulldown(uint8_t pin) {
+    uint8_t sh = pin * 4;
+    volatile uint32_t *cr = (pin < 8) ? &EC_GPIOA_CRL : &EC_GPIOA_CRH;
+    if (pin >= 8) sh -= 32;
+    *cr = (*cr & ~(0xFu << sh)) | (0x8u << sh); // CNF=10, MODE=00
+    if (pin < 16) EC_GPIOA_BSRR = (1u << (pin+16)); // ODR=0 = pulldown
 }
-
-/* ── QMK ─────────────────────────────────────────────────────────────── */
 
 void matrix_init_custom(void) {
     debug_enable = true;
     debug_matrix = true;
 
-    print("\nEC87 v3.9 booting (capacitive coupling, fixed topology)...\n");
+    print("\n=== EC87 DIAGNOSTIC v3.9d ===\n");
 
-    EC_RCC_APB2ENR |= (1u << 2) | (1u << 3);
-
-    for (int i = 0; i < 4; i++) {
-        gpio_set_pin_output(mux_pins[i]);
-        gpio_write_pin(mux_pins[i], 0);
-    }
+    EC_RCC_APB2ENR |= (1u<<2)|(1u<<3);
+    for (int i=0;i<4;i++) { gpio_set_pin_output(mux_pins[i]); gpio_write_pin(mux_pins[i],0); }
     gpio_set_pin_output(MUX_EN_PIN);
-    gpio_write_pin(MUX_EN_PIN, 1);
-
     adc_init();
-    print("ADC ready (55.5cyc, row floats BEFORE PA1 step)\n");
+    print("ADC ready\n");
+
+    gpio_write_pin(MUX_EN_PIN, 0); // enable mux
+
+    /* Test each row for col 0 */
+    print("\n--- Test on COL 0 ---\n");
+    mux_set(0);
+
+    for (uint8_t row = 0; row < ROW_COUNT; row++) {
+        uint8_t pin = row + 2;
+        uint8_t ch = row + 2;
+        uint16_t v;
+
+        /* A: pin analog, PA1=LOW -> expect ~0 */
+        set_pin_output(1, 0);
+        set_pin_analog(pin);
+        wait_us(10);
+        v = adc_read(ch);
+        xprintf("R%d A(PA1=L,row=analog): %u\n", row, v);
+
+        /* B: pin analog, PA1=HIGH -> current scheme */
+        set_pin_output(1, 1);
+        wait_us(10);
+        v = adc_read(ch);
+        xprintf("R%d B(PA1=H,row=analog): %u\n", row, v);
+
+        /* C: pin PULL-DOWN, PA1=HIGH -> if DC short, still high;
+           if only cap coupling, should read ~0 */
+        set_pin_input_pulldown(pin);
+        wait_us(10);
+        v = adc_read(ch);
+        xprintf("R%d C(PA1=H,row=PD)    : %u\n", row, v);
+
+        /* D: pin output LOW, PA1=HIGH -> driven low, should be 0 */
+        set_pin_output(pin, 0);
+        wait_us(10);
+        v = adc_read(ch);
+        xprintf("R%d D(PA1=H,row=OUT_L) : %u\n", row, v);
+
+        /* E: pin analog, PA1=HIGH, mux DISABLED -> should be 0 (no connection) */
+        gpio_write_pin(MUX_EN_PIN, 1);
+        set_pin_analog(pin);
+        set_pin_output(1, 1);
+        wait_us(10);
+        v = adc_read(ch);
+        xprintf("R%d E(PA1=H,mux=OFF)   : %u\n", row, v);
+        gpio_write_pin(MUX_EN_PIN, 0);
+    }
+
+    /* Also test: all rows analog, PA1=LOW, read each -> floating noise */
+    print("\n--- All rows analog, PA1=LOW ---\n");
+    set_pin_output(1, 0);
+    for (uint8_t r=0;r<6;r++) set_pin_analog(r+2);
+    wait_us(50);
+    for (uint8_t r=0;r<6;r++) {
+        xprintf("R%d: %u  ", r, adc_read(r+2));
+    }
+    print("\n");
+
+    /* Test: all rows analog, PA1=HIGH, mux OFF */
+    print("--- All rows analog, PA1=HIGH, mux OFF ---\n");
+    gpio_write_pin(MUX_EN_PIN, 1);
+    set_pin_output(1, 1);
+    wait_us(50);
+    for (uint8_t r=0;r<6;r++) {
+        xprintf("R%d: %u  ", r, adc_read(r+2));
+    }
+    print("\n");
 
     gpio_write_pin(MUX_EN_PIN, 0);
-    print("Calibrating...\n");
-    calibrate_baseline();
-    all_rows_low();
-    gpio_write_pin(MUX_EN_PIN, 1);
+    print("\n=== DIAG DONE ===\n\n");
 
-    print("EC87 v3.9 READY\n\n");
+    // Keep printing repeating B test for live debugging
 }
 
+static uint8_t scan_cycle = 0;
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
-    bool changed = false;
+    for (uint8_t r=0;r<ROW_COUNT;r++) current_matrix[r]=0;
 
-    gpio_write_pin(MUX_EN_PIN, 0);
-
-    for (uint8_t row = 0; row < ROW_COUNT; row++)
-        current_matrix[row] = 0;
-
-    for (uint8_t col = 0; col < COL_COUNT; col++) {
-        mux_set(col);
-
-        for (uint8_t row = 0; row < ROW_COUNT; row++) {
-            uint16_t v = measure_key(col, row);
-            int16_t  diff = (int16_t)v - (int16_t)baseline[row][col];
-
-            cap_raw[row][col]  = v;
-            cap_diff[row][col] = diff;
-
-            if (diff > THRESHOLD_DELTA)
-                current_matrix[row] |= (matrix_row_t)1 << col;
-
-            if (diff < THRESHOLD_DELTA) {
-                if      (v > baseline[row][col]) baseline[row][col] += 2;
-                else if (v < baseline[row][col]) baseline[row][col] -= 2;
-            }
+    // After initial diag, just do a simple continuous read of B config
+    if (++scan_cycle >= 30) {
+        scan_cycle = 0;
+        gpio_write_pin(MUX_EN_PIN, 0);
+        mux_set(0);
+        set_pin_output(1, 1);
+        print("LIVE col0:");
+        for (uint8_t r=0;r<6;r++) {
+            set_pin_analog(r+2);
+            wait_us(5);
+            xprintf(" R%d=%u", r, adc_read(r+2));
+            set_pin_output(r+2, 0);
         }
+        print("\n");
+        set_pin_output(1, 0);
     }
-
-    all_rows_low();
-    gpio_write_pin(MUX_EN_PIN, 1);
-
-    static matrix_row_t prev[ROW_COUNT];
-    for (uint8_t r = 0; r < ROW_COUNT; r++) {
-        if (current_matrix[r] != prev[r]) {
-            changed = true;
-            prev[r] = current_matrix[r];
-        }
-    }
-
-    if (++scan_counter >= DEBUG_PRINT_INTERVAL) {
-        scan_counter = 0;
-        debug_print();
-    }
-
-    return changed;
+    return false;
 }

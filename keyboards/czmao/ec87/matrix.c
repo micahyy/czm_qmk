@@ -39,7 +39,7 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define THRESHOLD_DELTA      400    /* total cycles (32x single-cycle)   */
 #define DISCHARGE_NOP        3      /* nops after switching to discharge */
 #define BASELINE_SAMPLES     8
-#define TIMEOUT_CYCLES       200000 /* per-row total timeout             */
+#define TIMEOUT_CYCLES       50000u /* per-row total timeout             */
 #define DEBUG_PRINT_INTERVAL 15
 
 /* ── STM32F103 ───────────────────────────────────────────────────────── */

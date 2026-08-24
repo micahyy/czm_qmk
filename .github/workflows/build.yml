@@ -24,31 +24,30 @@ jobs:
           sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi \
             gcc-avr binutils-avr avr-libc dfu-util dfu-programmer python3-pip
           pip3 install qmk
-          qmk --version || true
 
-      - name: Build EC87 default (bin + UF2)
+      - name: Build EC87 default (bin + uf2)
+        shell: bash
         run: |
-          qmk compile -kb czmao/ec87 -km default
-          qmk compile -kb czmao/ec87 -km default -e CONVERT_TO=uf2
+          make czmao/ec87:default COLOR=false
+          make czmao/ec87:default:uf2 COLOR=false
+
+      - name: Build DS60 via (uf2)
+        shell: bash
+        run: |
+          make czmao/ds60:via:uf2 COLOR=false
+
+      - name: Collect outputs
+        shell: bash
+        run: |
           cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2
-
-      - name: Build DS60 via (UF2)
-        run: |
-          qmk compile -kb czmao/ds60 -km via -e CONVERT_TO=uf2
+          cp -v .build/czmao_ec87_default.bin ./czmao_ec87_default.bin
           cp -v .build/czmao_ds60_via.uf2 ./czmao_ds60_via.uf2
           cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
-
-      - name: List outputs
-        run: |
-          ls -la *.bin *.hex *.uf2 2>/dev/null || true
-          ls -la .build/*ds60* .build/*ec87* 2>/dev/null || true
+          ls -la *.bin *.uf2
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: czmao_firmware
-          path: |
-            *.bin
-            *.hex
-            *.uf2
+          path: "*.{bin,uf2}"
           if-no-files-found: error

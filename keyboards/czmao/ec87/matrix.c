@@ -17,6 +17,7 @@
 #include "print.h"
 #include "debug.h"
 #include <stdint.h>
+#include "timer.h"
 #include <string.h>
 
 #define ROW_COUNT 6
@@ -62,7 +63,7 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define BOOT_KEY_THRESH  300
 
 /* ── Calibration block stored in flash ── */
-typedef struct __attribute__((packed)) {
+typedef struct {
     uint32_t magic;
     uint16_t baseline[TOTAL_KEYS];
     uint16_t checksum;
@@ -184,10 +185,13 @@ static void calib_save(void) {
     flash_unlock();
     flash_erase_page(CALIB_FLASH_ADDR);
 
-    const uint16_t *p = (const uint16_t *)&blk;
+    uint8_t buf[sizeof(calib_block_t) + 2];
+    memset(buf, 0xFF, sizeof(buf));
+    memcpy(buf, &blk, sizeof(blk));
     uint32_t addr = CALIB_FLASH_ADDR;
-    for (unsigned i=0; i<(sizeof(blk)+1)/2; i++) {
-        flash_write_halfword(addr, p[i]);
+    for (unsigned i=0; i<sizeof(blk); i+=2) {
+        uint16_t hw = (uint16_t)buf[i] | ((uint16_t)buf[i+1] << 8);
+        flash_write_halfword(addr, hw);
         addr += 2;
     }
     flash_lock();

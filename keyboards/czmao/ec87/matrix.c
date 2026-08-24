@@ -1,24 +1,21 @@
 /* Copyright 2026 micahyy
  *
- * EC87 capacitive matrix — RELAXATION OSCILLATOR v3.4
+ * EC87 capacitive matrix — SIMULTANEOUS RELAXATION OSCILLATOR v3.5
  *
- * v3.3 single-cycle RC timing had only 4-5 quantization levels
- * (~119/185/297/413 cycles) causing noise-induced false triggers.
+ * v3.4 measured rows one at a time with individual GPIO mode switches,
+ * causing race conditions on R5 (PA7) — garbage values 3/7/10/9300.
  *
- * This version repeats charge/discharge N times per key and measures
- * total DWT cycles. The capacitance delta is amplified N-fold and
- * per-cycle noise averages out.
+ * v3.5 oscillates ALL 6 rows simultaneously:
+ *   For each column (via 74HC4067, PA1 drives LOW):
+ *     Repeat N_OSC times:
+ *       1. All PA2-PA7 push-pull LOW (discharge all keys)
+ *       2. Brief settle
+ *       3. Switch ALL rows to internal pull-up input at once
+ *       4. Poll IDR, record per-row charge cycles
+ *       5. Discharge and repeat
+ *     Accumulate per-row total cycles over N_OSC oscillations.
  *
- * Per (column, row) pair:
- *   1. PA1 drives selected column LOW through 74HC4067
- *   2. Target row: push-pull LOW (discharge)
- *   3. Switch target row to internal pull-up input
- *   4. Poll IDR until pin goes HIGH
- *   5. Discharge (back to step 2), repeat N_OSC times
- *   6. Total elapsed cycles ∝ R_pullup * (C_par + C_key)
- *
- * Pressed key → larger C_key → longer per-cycle → more total cycles.
- * Non-target rows are held LOW (push-pull) to avoid crosstalk.
+ * Pressed key → more C on that row/col → longer charge → higher total.
  */
 
 #include "matrix.h"
@@ -35,11 +32,12 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
 /* ── Tuning ──────────────────────────────────────────────────────────── */
-#define N_OSC                32     /* charge/discharge cycles per key   */
-#define THRESHOLD_DELTA      400    /* total cycles (32x single-cycle)   */
-#define DISCHARGE_NOP        3      /* nops after switching to discharge */
+#define N_OSC                40
+#define THRESHOLD_DELTA      500
+#define DISCHARGE_NS         200    /* discharge time in ~14ns units (nops) */
+#define SETTLE_NOP           2
 #define BASELINE_SAMPLES     8
-#define TIMEOUT_CYCLES       50000u /* per-row total timeout             */
+#define TIMEOUT_CYCLES       3000u
 #define DEBUG_PRINT_INTERVAL 15
 
 /* ── STM32F103 ───────────────────────────────────────────────────────── */
@@ -63,7 +61,7 @@ static uint16_t cap_raw[ROW_COUNT][COL_COUNT];
 static int16_t  cap_diff[ROW_COUNT][COL_COUNT];
 static uint8_t  scan_counter = 0;
 
-/* ── Helpers ─────────────────────────────────────────────────────────── */
+/* ── Low-level helpers ───────────────────────────────────────────────── */
 
 static inline void dwt_init(void) {
     EC_DEMCR  |= (1u << 24);
@@ -76,30 +74,18 @@ static inline void pa1_low(void) {
     EC_GPIOA_BSRR = (1u << 17);
 }
 
-/* Set a single row pin to push-pull 50MHz output LOW; others stay as-is */
-static inline void row_output_low(uint8_t row) {
-    uint8_t shift = (row + 2) * 4;
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~(0xFu << shift)) | (0x3u << shift);
-    EC_GPIOA_BSRR = (1u << (18 + row));  /* BRn */
-}
-
-/* Set a single row pin to input with internal pull-up */
-static inline void row_pullup(uint8_t row) {
-    uint8_t shift = (row + 2) * 4;
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~(0xFu << shift)) | (0x8u << shift);
-    EC_GPIOA_ODR |= (1u << (row + 2));
-}
-
-/* All rows push-pull LOW */
-static inline void all_rows_low(void) {
+/* All rows: push-pull 50MHz, driven LOW */
+static inline void rows_discharge(void) {
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
-    EC_GPIOA_BSRR = (0x3Fu << 18);
+    EC_GPIOA_ODR &= ~EC_ROW_BITS;  /* ensure ODR bits are 0 */
+    EC_GPIOA_BSRR = (0x3Fu << 18); /* BR2..BR7 — drive LOW */
 }
 
-/* All rows: push-pull LOW (used as idle state / shield) */
-static inline void all_rows_shield(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
-    EC_GPIOA_BSRR = (0x3Fu << 18);
+/* All rows: input with internal pull-up */
+static inline void rows_pullup(void) {
+    /* First ensure ODR = 1 for pull-up, THEN switch mode (avoids pull-down glitch) */
+    EC_GPIOA_ODR |= EC_ROW_BITS;
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x88888800u);
 }
 
 static void mux_set(uint8_t ch) {
@@ -107,28 +93,47 @@ static void mux_set(uint8_t ch) {
         gpio_write_pin(mux_pins[i], (ch >> i) & 1);
 }
 
-/* ── Relaxation oscillator measurement for one key ───────────────────── */
+/* ── Simultaneous 6-row relaxation oscillator ────────────────────────── */
 
-static uint16_t measure_key(uint8_t col, uint8_t row) {
-    uint32_t pin_bit = 1u << (row + 2);
-    uint32_t t0 = EC_DWT_CYCCNT;
-    uint32_t timeout = t0 + TIMEOUT_CYCLES;
+static void measure_column(uint8_t col, uint16_t *results) {
+    uint32_t totals[6] = {0};
 
     for (int osc = 0; osc < N_OSC; osc++) {
-        /* Discharge phase */
-        row_output_low(row);
-        __asm__ __volatile__("nop\nnop\nnop\n");
+        /* Phase 1: discharge all rows */
+        rows_discharge();
+        for (volatile int d = 0; d < DISCHARGE_NS; d++) __asm__("nop");
 
-        /* Charge phase: switch to pull-up input */
-        row_pullup(row);
+        /* Phase 2: switch all rows to pull-up input simultaneously */
+        rows_pullup();
+        for (volatile int d = 0; d < SETTLE_NOP; d++) __asm__("nop");
 
-        /* Poll until HIGH or timeout */
-        while (!(EC_GPIOA_IDR & pin_bit)) {
-            if ((int32_t)(EC_DWT_CYCCNT - timeout) > 0)
-                return TIMEOUT_CYCLES;
+        /* Phase 3: poll IDR, record when each row crosses VIH */
+        uint32_t t0 = EC_DWT_CYCCNT;
+        uint8_t remaining = 0x3Fu;
+        uint16_t t[6];
+        for (int r = 0; r < 6; r++) t[r] = TIMEOUT_CYCLES;
+
+        while (remaining) {
+            uint32_t now = EC_DWT_CYCCNT;
+            uint32_t elapsed = now - t0;
+            if ((int32_t)(elapsed - TIMEOUT_CYCLES) > 0) break;
+
+            uint8_t pins = (uint8_t)((EC_GPIOA_IDR >> 2) & 0x3Fu);
+            uint8_t ready = pins & remaining;
+            if (ready) {
+                for (int r = 0; r < 6; r++) {
+                    if (ready & (1u << r)) {
+                        t[r] = (uint16_t)elapsed;
+                        remaining &= (uint8_t)~(1u << r);
+                    }
+                }
+            }
         }
+        for (int r = 0; r < 6; r++) totals[r] += t[r];
     }
-    return (uint16_t)(EC_DWT_CYCCNT - t0);
+
+    for (int r = 0; r < 6; r++)
+        results[r] = (uint16_t)(totals[r] / N_OSC);  /* average per-cycle */
 }
 
 /* ── Baseline ────────────────────────────────────────────────────────── */
@@ -137,19 +142,19 @@ static void calibrate_baseline(void) {
     gpio_write_pin(MUX_EN_PIN, 0);
     wait_us(100);
 
+    uint16_t results[6];
     for (uint8_t col = 0; col < COL_COUNT; col++) {
         mux_set(col);
         pa1_low();
-        all_rows_low();
         wait_us(5);
 
-        for (uint8_t row = 0; row < ROW_COUNT; row++) {
-            uint32_t sum = 0;
-            for (int s = 0; s < BASELINE_SAMPLES; s++)
-                sum += measure_key(col, row);
-            baseline[row][col] = (uint16_t)(sum / BASELINE_SAMPLES);
-            all_rows_low();
+        uint32_t sums[6] = {0};
+        for (int s = 0; s < BASELINE_SAMPLES; s++) {
+            measure_column(col, results);
+            for (int r = 0; r < 6; r++) sums[r] += results[r];
         }
+        for (int r = 0; r < 6; r++)
+            baseline[r][col] = (uint16_t)(sums[r] / BASELINE_SAMPLES);
     }
 }
 
@@ -168,7 +173,7 @@ static void debug_print(void) {
         }
     }
 
-    xprintf("EC87v34 cyc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d n=%d\n",
+    xprintf("EC87v35 cyc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d n=%d\n",
             min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c, THRESHOLD_DELTA, N_OSC);
 
     print("RAW:\n");
@@ -194,7 +199,7 @@ void matrix_init_custom(void) {
     debug_enable = true;
     debug_matrix = true;
 
-    print("\nEC87 v3.4 booting (relaxation oscillator x32)...\n");
+    print("\nEC87 v3.5 booting (simultaneous 6-row oscillator)...\n");
 
     EC_RCC_APB2ENR |= (1u << 2) | (1u << 3);
 
@@ -211,13 +216,15 @@ void matrix_init_custom(void) {
     gpio_write_pin(MUX_EN_PIN, 0);
     print("Calibrating...\n");
     calibrate_baseline();
+    rows_discharge();
     gpio_write_pin(MUX_EN_PIN, 1);
 
-    print("EC87 v3.4 READY\n\n");
+    print("EC87 v3.5 READY\n\n");
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     bool changed = false;
+    uint16_t results[6];
 
     gpio_write_pin(MUX_EN_PIN, 0);
 
@@ -227,10 +234,10 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     for (uint8_t col = 0; col < COL_COUNT; col++) {
         mux_set(col);
         pa1_low();
+        measure_column(col, results);
 
         for (uint8_t row = 0; row < ROW_COUNT; row++) {
-            all_rows_low();
-            uint16_t v = measure_key(col, row);
+            uint16_t v = results[row];
             int16_t  diff = (int16_t)v - (int16_t)baseline[row][col];
 
             cap_raw[row][col]  = v;
@@ -239,15 +246,14 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
             if (diff > THRESHOLD_DELTA)
                 current_matrix[row] |= (matrix_row_t)1 << col;
 
-            /* Slow baseline auto-track when not pressed */
             if (diff < THRESHOLD_DELTA) {
-                if      (v > baseline[row][col]) baseline[row][col] += 2;
-                else if (v < baseline[row][col]) baseline[row][col] -= 2;
+                if      (v > baseline[row][col]) baseline[row][col]++;
+                else if (v < baseline[row][col]) baseline[row][col]--;
             }
         }
     }
 
-    all_rows_low();
+    rows_discharge();
     gpio_write_pin(MUX_EN_PIN, 1);
 
     static matrix_row_t prev[ROW_COUNT];

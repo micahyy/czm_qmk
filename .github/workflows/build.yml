@@ -25,14 +25,16 @@ jobs:
             gcc-avr binutils-avr avr-libc dfu-util dfu-programmer python3-pip >/dev/null
           pip3 install -q qmk
 
-      - name: Build EC87 default (bin + uf2)
+      - name: Build EC87 (bin + uf2)
         run: |
-          make czmao/ec87:default COLOR=false
-          make czmao/ec87:default COLOR=false uf2
+          qmk clone --home . 2>/dev/null || true
+          make -f builddefs/build_keyboard.mk KEYBOARD=czmao/ec87 KEYMAP=default SILENT=false COLOR=false
+          make -f builddefs/build_keyboard.mk KEYBOARD=czmao/ec87 KEYMAP=default uf2 SILENT=false COLOR=false
 
-      - name: Build DS60 via (uf2)
+      - name: Build DS60 via (bin + uf2)
         run: |
-          make czmao/ds60:via COLOR=false uf2
+          make -f builddefs/build_keyboard.mk KEYBOARD=czmao/ds60 KEYMAP=via SILENT=false COLOR=false
+          make -f builddefs/build_keyboard.mk KEYBOARD=czmao/ds60 KEYMAP=via uf2 SILENT=false COLOR=false
 
       - name: Collect outputs
         run: |

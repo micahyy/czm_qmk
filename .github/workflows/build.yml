@@ -28,12 +28,16 @@ jobs:
       - name: Build EC87 default (UF2)
         run: make czmao/ec87:default:uf2 COLOR=false
 
+      - name: Build EC87 via (UF2)
+        run: make czmao/ec87:via:uf2 COLOR=false
+
       - name: Build DS60 via (bin)
         run: make czmao/ds60:via COLOR=false
 
       - name: Collect outputs
         run: |
           cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2
+          cp -v .build/czmao_ec87_via.uf2 ./czmao_ec87_via.uf2
           cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
           ls -la *.uf2 *.bin
 

@@ -5,6 +5,7 @@
 #include "print.h"
 #include "debug.h"
 #include <stdint.h>
+#include "timer.h"
 #include <string.h>
 
 #define ROW_COUNT 6

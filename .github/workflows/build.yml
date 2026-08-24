@@ -25,40 +25,27 @@ jobs:
             gcc-avr binutils-avr avr-libc dfu-util dfu-programmer python3-pip >/dev/null
           pip3 install -q qmk
 
-      - name: Debug DS60
-        run: |
-          set -x
-          ls -la keyboards/czmao/ds60/
-          ls -la keyboards/czmao/ds60/keymaps/
-          ls -la keyboards/czmao/ds60/keymaps/via/
-          qmk list-keymaps --keyboard czmao/ds60 || true
-          qmk generate-rules-mk --keyboard czmao/ds60 --output /tmp/ir.mk 2>&1 | head -30 || true
-          echo "=== ir.mk ==="
-          cat /tmp/ir.mk 2>/dev/null || echo "no ir.mk"
-
-      - name: Build EC87 (bin + uf2)
+      - name: Build EC87 default (bin + uf2)
         run: |
           make czmao/ec87:default COLOR=false
           make czmao/ec87:default COLOR=false uf2
 
       - name: Build DS60 via (bin + uf2)
         run: |
-          make -d -f builddefs/build_keyboard.mk KEYBOARD=czmao/ds60 KEYMAP=via SILENT=false COLOR=false 2>&1 | tail -80
+          make czmao/ds60:via COLOR=false
+          make czmao/ds60:via COLOR=false uf2
 
       - name: Collect outputs
-        if: always()
         run: |
-          ls -la .build/
-          cp -v .build/czmao_ec87_default.bin ./czmao_ec87_default.bin || true
-          cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2 || true
-          cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin || true
-          cp -v .build/czmao_ds60_via.uf2 ./czmao_ds60_via.uf2 || true
-          ls -la *.bin *.uf2 || true
+          cp -v .build/czmao_ec87_default.bin ./czmao_ec87_default.bin
+          cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2
+          cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
+          cp -v .build/czmao_ds60_via.uf2 ./czmao_ds60_via.uf2
+          ls -la *.bin *.uf2
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: czmao_firmware
           path: "*.{bin,uf2}"
-          if-no-files-found: warn
+          if-no-files-found: error

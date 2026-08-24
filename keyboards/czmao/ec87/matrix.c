@@ -90,7 +90,6 @@ static void mux_set_channel(uint8_t ch) {
 }
 
 static void mux_enable(void)  { gpio_write_pin(MUX_EN_PIN, 0); }
-static void mux_disable(void) { gpio_write_pin(MUX_EN_PIN, 1); }
 
 /* ── DWT ─────────────────────────────────────────────────────────────── */
 

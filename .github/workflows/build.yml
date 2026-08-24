@@ -25,21 +25,23 @@ jobs:
             gcc-avr binutils-avr avr-libc dfu-util dfu-programmer python3-pip >/dev/null
           pip3 install -q qmk
 
-      - name: Build EC87 default
-        run: make czmao/ec87:default COLOR=false
+      - name: Build EC87 default (UF2)
+        run: make czmao/ec87:default:uf2 COLOR=false
 
-      - name: Build DS60 via
+      - name: Build DS60 via (bin)
         run: make czmao/ds60:via COLOR=false
 
       - name: Collect outputs
         run: |
-          cp -v .build/czmao_ec87_default.bin ./czmao_ec87_default.bin
+          cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2
           cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
-          ls -la *.bin
+          ls -la *.uf2 *.bin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: czmao_firmware
-          path: "*.bin"
+          path: |
+            *.uf2
+            *.bin
           if-no-files-found: error

@@ -5,6 +5,6 @@ SRC += matrix.c
 
 CONSOLE_ENABLE = yes
 
-# Use EC87-specific linker (reserves last 1KB flash for calib data)
-MCU_LDSCRIPT = STM32F103x8_ec87
+# Use 16KB UF2 bootloader (uf2boot) instead of 8KB stm32duino
+MCU_LDSCRIPT = STM32F103x8_uf2boot
 OPT = 2

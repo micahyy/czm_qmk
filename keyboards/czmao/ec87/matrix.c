@@ -1,4 +1,4 @@
-/* EC87 v4.1 — capacitive sensing with per-key auto-calibration */
+/* EC87 v4.2 — production capacitive sensing with debounce */
 #include "matrix.h"
 #include "gpio.h"
 #include "wait.h"
@@ -14,7 +14,6 @@
 static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
-/* ADC registers (CORRECT addresses) */
 #define EC_RCC_APB2ENR  (*(volatile uint32_t *)0x40021018)
 #define EC_RCC_CFGR     (*(volatile uint32_t *)0x40021004)
 #define EC_ADC1_SR      (*(volatile uint32_t *)0x40012400)
@@ -29,17 +28,18 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define EC_GPIOA_CRH    (*(volatile uint32_t *)0x40010804)
 #define EC_GPIOA_BSRR   (*(volatile uint32_t *)0x40010810)
 
-/* Tuning parameters */
+/* Tuning */
 #define DISCHARGE_US    10
 #define SETTLE_US       5
-#define CALIB_SAMPLES   16
-#define PRESS_DELTA     120   /* delta above baseline to trigger */
-#define RELEASE_DELTA   80    /* delta below baseline to release (hysteresis) */
 #define MUX_SETTLE_US   3
+#define CALIB_SAMPLES   16
+#define PRESS_DELTA     120
+#define RELEASE_DELTA   80
+#define DEBOUNCE_MS     5
 
 static uint16_t baseline[TOTAL_KEYS];
-static uint16_t current_raw[TOTAL_KEYS];
-static uint8_t  key_state[TOTAL_KEYS]; /* 0=released, 1=pressed */
+static uint8_t  key_state[TOTAL_KEYS];
+static uint32_t last_change[TOTAL_KEYS];
 
 static void mux_set(uint8_t ch) {
     for (int i = 0; i < 4; i++)
@@ -49,14 +49,12 @@ static void mux_set(uint8_t ch) {
 static void adc_init(void) {
     EC_RCC_APB2ENR |= (1u<<2)|(1u<<3)|(1u<<9);
     EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u<<14)) | (2u<<14);
-
     EC_ADC1_CR2 = (1u<<0);
     wait_ms(2);
-    EC_ADC1_CR2 |= (1u<<3);  /* RSTCAL */
+    EC_ADC1_CR2 |= (1u<<3);
     { volatile uint32_t t=200000; while((EC_ADC1_CR2&(1u<<3))&&--t); }
-    EC_ADC1_CR2 |= (1u<<2);  /* CAL */
+    EC_ADC1_CR2 |= (1u<<2);
     { volatile uint32_t t=200000; while((EC_ADC1_CR2&(1u<<2))&&--t); }
-
     EC_ADC1_CR1 = 0;
     EC_ADC1_CR2 = (1u<<0)|(1u<<20)|(7u<<17);
     EC_ADC1_SMPR2 = 0x2DB6DB6D;
@@ -64,15 +62,15 @@ static void adc_init(void) {
     EC_ADC1_SQR1 = 0;
 }
 
-static uint16_t adc_read(uint8_t ch) {
+static inline uint16_t adc_read(uint8_t ch) {
     EC_ADC1_SQR3 = ch & 0x1F;
     EC_ADC1_CR2 |= (1u<<22);
-    volatile uint32_t t=50000;
-    while(!(EC_ADC1_SR&(1u<<1))&&--t);
+    __asm__ volatile ("" ::: "memory");
+    while(!(EC_ADC1_SR&(1u<<1)));
     return (uint16_t)(EC_ADC1_DR & 0xFFFu);
 }
 
-static void set_pin_output(uint8_t pin, uint8_t high) {
+static inline void set_pin_output(uint8_t pin, uint8_t high) {
     uint8_t sh = pin * 4;
     volatile uint32_t *cr = (pin < 8) ? &EC_GPIOA_CRL : &EC_GPIOA_CRH;
     if (pin >= 8) sh -= 32;
@@ -81,7 +79,7 @@ static void set_pin_output(uint8_t pin, uint8_t high) {
     else      EC_GPIOA_BSRR = (1u << (pin+16));
 }
 
-static void set_pin_analog(uint8_t pin) {
+static inline void set_pin_analog(uint8_t pin) {
     uint8_t sh = pin * 4;
     volatile uint32_t *cr = (pin < 8) ? &EC_GPIOA_CRL : &EC_GPIOA_CRH;
     if (pin >= 8) sh -= 32;
@@ -90,128 +88,81 @@ static void set_pin_analog(uint8_t pin) {
 
 static uint16_t read_key(uint8_t row, uint8_t col) {
     uint8_t pin = row + 2;
-    uint8_t ch = row + 2;
 
-    /* Discharge all rows + PA1 */
     set_pin_output(1, 0);
     for (uint8_t r=0;r<ROW_COUNT;r++) set_pin_output(r+2, 0);
     wait_us(DISCHARGE_US);
 
-    /* Select column on mux */
     mux_set(col);
     wait_us(MUX_SETTLE_US);
-
-    /* Float target row, others stay LOW as active shield */
     set_pin_analog(pin);
-
-    /* Voltage step on PA1 → couples through C_key to floating row */
     set_pin_output(1, 1);
     wait_us(SETTLE_US);
 
-    uint16_t v = adc_read(ch);
+    uint16_t v = adc_read(pin);
 
-    /* Discharge */
     set_pin_output(1, 0);
     set_pin_output(pin, 0);
-
     return v;
 }
 
 static void calibrate(void) {
-    print("Calibrating");
-    /* Warm-up pass */
-    for (uint8_t col=0; col<COL_COUNT; col++)
-        for (uint8_t row=0; row<ROW_COUNT; row++)
-            read_key(row, col);
+    /* warm-up */
+    for (uint8_t c=0;c<COL_COUNT;c++)
+        for (uint8_t r=0;r<ROW_COUNT;r++)
+            read_key(r, c);
 
-    /* Average multiple samples */
     uint32_t acc[TOTAL_KEYS];
     memset(acc, 0, sizeof(acc));
-    for (int s=0; s<CALIB_SAMPLES; s++) {
-        for (uint8_t col=0; col<COL_COUNT; col++) {
-            for (uint8_t row=0; row<ROW_COUNT; row++) {
-                uint16_t v = read_key(row, col);
-                acc[row*COL_COUNT+col] += v;
-            }
-        }
-        print(".");
-    }
-    for (int i=0; i<TOTAL_KEYS; i++) {
-        baseline[i] = acc[i] / CALIB_SAMPLES;
-    }
-    print(" done\n");
-
-    /* Print baseline table */
-    print("\nBaseline table (row x col):\n    ");
-    for (uint8_t c=0;c<COL_COUNT;c++) xprintf("%4u", c);
-    print("\n");
-    for (uint8_t r=0;r<ROW_COUNT;r++) {
-        xprintf("R%d:", r);
+    for (int s=0;s<CALIB_SAMPLES;s++)
         for (uint8_t c=0;c<COL_COUNT;c++)
-            xprintf(" %4u", baseline[r*COL_COUNT+c]);
-        print("\n");
-    }
+            for (uint8_t r=0;r<ROW_COUNT;r++)
+                acc[r*COL_COUNT+c] += read_key(r, c);
 
-    /* Sanity: find min/max baseline */
-    uint16_t bmin=4095, bmax=0;
-    for (int i=0;i<TOTAL_KEYS;i++) {
-        if (baseline[i]<bmin) bmin=baseline[i];
-        if (baseline[i]>bmax) bmax=baseline[i];
-    }
-    xprintf("Baseline range: %u - %u\n", bmin, bmax);
+    for (int i=0;i<TOTAL_KEYS;i++)
+        baseline[i] = acc[i] / CALIB_SAMPLES;
 }
 
 void matrix_init_custom(void) {
-    debug_enable = true;
-    debug_matrix = true;
-
     EC_RCC_APB2ENR |= (1u<<2)|(1u<<3);
     for (int i=0;i<4;i++) { gpio_set_pin_output(mux_pins[i]); gpio_write_pin(mux_pins[i],0); }
     gpio_set_pin_output(MUX_EN_PIN);
     gpio_write_pin(MUX_EN_PIN, 0);
     adc_init();
-
-    print("\n=== EC87 v4.1 ===\n");
-
-    /* Wait for console */
-    wait_ms(2000);
-    print("Starting calibration (do not press keys)...\n");
-
+    wait_ms(500);
     calibrate();
-
-    print("Ready. Press keys.\n");
-    print("PRESS_DELTA="); xprintf("%d", PRESS_DELTA);
-    print(" RELEASE_DELTA="); xprintf("%d\n", RELEASE_DELTA);
+    memset(key_state, 0, sizeof(key_state));
+    memset(last_change, 0, sizeof(last_change));
 }
-
-static uint16_t dbg_count = 0;
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     bool changed = false;
+    uint32_t now = timer_read32();
 
     for (uint8_t col=0; col<COL_COUNT; col++) {
         for (uint8_t row=0; row<ROW_COUNT; row++) {
             uint16_t idx = row*COL_COUNT+col;
             uint16_t v = read_key(row, col);
-            current_raw[idx] = v;
-
             int16_t delta = (int16_t)v - (int16_t)baseline[idx];
 
-            if (!key_state[idx] && delta >= PRESS_DELTA) {
-                key_state[idx] = 1;
-                changed = true;
-                xprintf("DN r%dc%d raw=%u base=%u delta=%d\n",
-                        row, col, v, baseline[idx], delta);
-            } else if (key_state[idx] && delta <= RELEASE_DELTA) {
-                key_state[idx] = 0;
-                changed = true;
-                xprintf("UP r%dc%d raw=%u base=%u delta=%d\n",
-                        row, col, v, baseline[idx], delta);
+            uint8_t want = key_state[idx];
+            if (!key_state[idx] && delta >= PRESS_DELTA)
+                want = 1;
+            else if (key_state[idx] && delta <= RELEASE_DELTA)
+                want = 0;
+
+            if (want != key_state[idx]) {
+                if (now - last_change[idx] >= DEBOUNCE_MS) {
+                    key_state[idx] = want;
+                    last_change[idx] = now;
+                    changed = true;
+                }
+            } else {
+                last_change[idx] = now;
             }
         }
     }
 
-    /* Build matrix */
     for (uint8_t r=0;r<ROW_COUNT;r++) current_matrix[r]=0;
     for (int i=0;i<TOTAL_KEYS;i++) {
         if (key_state[i]) {
@@ -220,33 +171,5 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
             current_matrix[r] |= (1u << c);
         }
     }
-
-    /* Periodic debug: show top 5 deltas */
-    if (++dbg_count >= 200) {
-        dbg_count = 0;
-        int16_t top_delta[5] = {-1,-1,-1,-1,-1};
-        uint8_t top_idx[5] = {0};
-        for (int i=0;i<TOTAL_KEYS;i++) {
-            int16_t d = (int16_t)current_raw[i] - (int16_t)baseline[i];
-            for (int j=0;j<5;j++) {
-                if (d > top_delta[j]) {
-                    for (int k=4;k>j;k--) {
-                        top_delta[k]=top_delta[k-1];
-                        top_idx[k]=top_idx[k-1];
-                    }
-                    top_delta[j]=d;
-                    top_idx[j]=i;
-                    break;
-                }
-            }
-        }
-        print("TOP:");
-        for (int j=0;j<5;j++) {
-            if (top_delta[j] >= 0)
-                xprintf(" r%dc%d=%d", top_idx[j]/COL_COUNT, top_idx[j]%COL_COUNT, top_delta[j]);
-        }
-        print("\n");
-    }
-
     return changed;
 }

@@ -28,13 +28,13 @@ jobs:
 
       - name: Build EC87 default (bin + UF2)
         run: |
-          make czmao/ec87:default COLOR=false
-          make czmao/ec87:default:uf2 COLOR=false
+          qmk compile -kb czmao/ec87 -km default
+          qmk compile -kb czmao/ec87 -km default -e CONVERT_TO=uf2
           cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2
 
       - name: Build DS60 via (UF2)
         run: |
-          make czmao/ds60:via:uf2 COLOR=false
+          qmk compile -kb czmao/ds60 -km via -e CONVERT_TO=uf2
           cp -v .build/czmao_ds60_via.uf2 ./czmao_ds60_via.uf2
           cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
 

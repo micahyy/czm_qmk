@@ -1,26 +1,25 @@
 /* Copyright 2026 micahyy
  *
- * EC87 capacitive matrix — CHARGE REDISTRIBUTION via ADC v3.6
+ * EC87 capacitive matrix — CHARGE REDISTRIBUTION v3.7 (tuned)
  *
- * Previous methods failed:
- *   - RC timing on PA1/COM: mux parasitics dominate, no key response
- *   - RC timing on rows (pull-up): 12-14 cycles, too fast to resolve
- *   - ADC drive-col-high sense-rows: 20us sample let leakage pull to VDD
+ * v3.6 issues:
+ *   - ADC sample 1.5 cycles too short for high-Z source → reads ~3500 (residual)
+ *   - PA1 released to high-Z, 1MΩ pull-down discharges node before ADC settles
  *
- * New method — charge redistribution (charge sharing):
- *   For each (col, row):
- *     1. PA1 drives column LOW, all rows output LOW → everything discharged
- *     2. PA1 drives column HIGH (VDD), rows stay LOW (shorted to GND)
- *        → key cap charges: column=VDD, row=GND, Q=C_key*VDD
- *     3. Wait 1us for column settle through mux
- *     4. Switch target row to analog input (high-Z) — instant release
- *        → charge redistributes: V_row = VDD*C_key/(C_key+C_self)
- *     5. ADC sample IMMEDIATELY with shortest 1.5-cycle sample (125ns)
- *        → pressed key = large positive ADC value
- *     6. Discharge and repeat
+ * v3.7 fixes (parameter tuning only, same algorithm):
+ *   - ADC sample time: 1.5 → 55.5 cycles (4.6µs) so S/H cap can settle
+ *   - PA1 stays driving HIGH during ADC read (overpowers 1MΩ pull-down)
+ *   - Charge time: 1µs → 5µs through mux
+ *   - 1µs settling after row goes analog before ADC sample
  *
- * This creates a DC voltage step (not transient), captured before
- * pin leakage can affect it (~125ns vs 20us in v3).
+ * Sequence per (col, row):
+ *   1. PA1=LOW, all rows=LOW → discharge
+ *   2. PA1=HIGH, target row=LOW → charge C_key (col=VDD, row=GND)
+ *   3. Target row → analog (high-Z), PA1 stays HIGH
+ *      → charge redistribution: V_row = VDD*C_key/(C_key+C_row_self)
+ *   4. Wait 1µs for settling
+ *   5. ADC read row (PA2-PA7)
+ *   6. Discharge
  */
 
 #include "matrix.h"
@@ -37,13 +36,14 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
 /* ── Tuning ──────────────────────────────────────────────────────────── */
-#define THRESHOLD_DELTA      300
+#define THRESHOLD_DELTA      200
 #define DISCHARGE_US         5
-#define CHARGE_US            1
+#define CHARGE_US            5
+#define SETTLE_US            1
 #define BASELINE_SAMPLES     16
 #define DEBUG_PRINT_INTERVAL 15
 
-/* ── STM32F103 ───────────────────────────────────────────────────────── */
+/* ── STM32F103 registers ─────────────────────────────────────────────── */
 #define EC_RCC_APB2ENR  (*(volatile uint32_t *)0x40021018)
 #define EC_RCC_CFGR     (*(volatile uint32_t *)0x40021004)
 
@@ -79,11 +79,6 @@ static inline void pa1_high(void) {
     EC_GPIOA_BSRR = (1u << 1);
 }
 
-/* PA1 analog input (high-Z, Schmitt trigger off) */
-static inline void pa1_hiz(void) {
-    EC_GPIOA_CRL &= ~EC_PA1_MASK;  /* CNF=00 MODE=00 */
-}
-
 /* ── Rows ────────────────────────────────────────────────────────────── */
 
 static inline void all_rows_low(void) {
@@ -91,14 +86,9 @@ static inline void all_rows_low(void) {
     EC_GPIOA_BSRR = (0x3Fu << 18);
 }
 
-/* Switch ONE row to analog input (high-Z). Other rows stay output LOW. */
 static inline void row_analog(uint8_t row) {
     uint8_t shift = (row + 2) * 4;
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~(0xFu << shift));  /* CNF=00 MODE=00 = analog */
-}
-
-static inline void all_rows_analog(void) {
-    EC_GPIOA_CRL &= ~EC_ROW_MASK;
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~(0xFu << shift));
 }
 
 /* ── Mux ─────────────────────────────────────────────────────────────── */
@@ -112,9 +102,9 @@ static void mux_set(uint8_t ch) {
 
 static void adc_init(void) {
     EC_RCC_APB2ENR |= (1u << 2) | (1u << 3) | (1u << 9);
-    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14); /* PCLK2/6 = 12MHz */
+    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14);
 
-    EC_ADC1_CR2 = 1u << 0;
+    EC_ADC1_CR2 = (1u << 0);
     wait_ms(2);
 
     EC_ADC1_CR2 |= (1u << 3);
@@ -122,20 +112,22 @@ static void adc_init(void) {
     EC_ADC1_CR2 |= (1u << 2);
     { volatile uint32_t t = 200000; while ((EC_ADC1_CR2 & (1u << 2)) && --t); }
 
-    /* Single conversion, no scan, no DMA */
     EC_ADC1_CR1 = 0;
-    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17); /* ADON|EXTTRIG|SWSTART */
+    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);
 
-    /* Shortest sample time: 1.5 cycles for ALL channels */
-    EC_ADC1_SMPR2 = 0x00000000;
+    /* 55.5 cycle sample time for ALL channels — allows S/H cap to settle
+     * through the high-impedance capacitive source (~4.6µs at 12MHz) */
+    /* Actually STM32F103: 000=1.5, 001=7.5, 010=13.5, 011=28.5,
+     *                     100=41.5, 101=55.5, 110=71.5, 111=239.5
+     * Set ALL channels to 101 (55.5 cycles) */
+    EC_ADC1_SMPR2 = 0x2DB6DB6D;  /* each 3-bit field = 101 = 55.5 cycles */
 
-    /* One conversion in sequence */
-    EC_ADC1_SQR1 = 0;  /* L=0 → 1 conversion */
+    EC_ADC1_SQR1 = 0;
 }
 
 static inline uint16_t adc_read_channel(uint8_t ch) {
-    EC_ADC1_SQR3 = ch;  /* rank1 = selected channel */
-    EC_ADC1_CR2 |= (1u << 22);  /* SWSTART */
+    EC_ADC1_SQR3 = ch;
+    EC_ADC1_CR2 |= (1u << 22);
     volatile uint32_t t = 100000;
     while (!(EC_ADC1_SR & (1u << 1)) && --t);
     return (uint16_t)(EC_ADC1_DR & 0xFFFu);
@@ -144,34 +136,29 @@ static inline uint16_t adc_read_channel(uint8_t ch) {
 /* ── Measure one key ─────────────────────────────────────────────────── */
 
 static uint16_t measure_key(uint8_t col, uint8_t row) {
-    uint8_t adc_ch = row + 2;  /* PA2=IN2, ..., PA7=IN7 */
+    uint8_t adc_ch = row + 2;
 
-    /* Phase 1: discharge — PA1 LOW output, all rows LOW output */
+    /* Phase 1: discharge */
     pa1_low();
     all_rows_low();
     wait_us(DISCHARGE_US);
 
-    /* Phase 2: charge key cap — PA1 HIGH, target row stays LOW (GND)
-     * Column charges to VDD through mux; key cap sees VDD across it. */
+    /* Phase 2: charge — PA1 drives column HIGH, row stays LOW */
     pa1_high();
     wait_us(CHARGE_US);
 
-    /* Phase 3: CRITICAL — release PA1 to high-Z FIRST, so column floats.
-     * If PA1 stays actively driven HIGH, the voltage is clamped and
-     * charge redistribution cannot happen. */
-    pa1_hiz();
-
-    /* Phase 4: release target row to analog high-Z.
-     * Charge redistributes between C_key (at VDD) and C_row_self (at 0V).
-     * V_row = VDD * C_key / (C_key + C_row_self).
-     * Pressed key = larger C_key = higher V_row. */
+    /* Phase 3: release row to analog (high-Z).
+     * PA1 stays HIGH to keep column at VDD and overpower 1MΩ pull-down.
+     * Charge redistribution: V_row = VDD*C_key/(C_key+C_row_self) */
     row_analog(row);
 
-    /* Phase 5: ADC sample immediately (S/H aperture ~125ns at 1.5 cycles).
-     * The voltage is DC-stable until leakage drains it (~tens of us). */
+    /* Phase 4: settle */
+    wait_us(SETTLE_US);
+
+    /* Phase 5: ADC read */
     uint16_t val = adc_read_channel(adc_ch);
 
-    /* Phase 6: discharge for next key */
+    /* Phase 6: discharge */
     pa1_low();
     all_rows_low();
 
@@ -210,7 +197,7 @@ static void debug_print(void) {
         }
     }
 
-    xprintf("EC87v36 adc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d\n",
+    xprintf("EC87v37 adc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d\n",
             min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c, THRESHOLD_DELTA);
 
     print("RAW:\n");
@@ -236,7 +223,7 @@ void matrix_init_custom(void) {
     debug_enable = true;
     debug_matrix = true;
 
-    print("\nEC87 v3.6 booting (charge redistribution ADC)...\n");
+    print("\nEC87 v3.7 booting (charge redistribution, tuned ADC)...\n");
 
     EC_RCC_APB2ENR |= (1u << 2) | (1u << 3);
 
@@ -248,7 +235,7 @@ void matrix_init_custom(void) {
     gpio_write_pin(MUX_EN_PIN, 1);
 
     adc_init();
-    print("ADC ready (1.5cyc sample)\n");
+    print("ADC ready (55.5cyc sample, PA1 stays driven)\n");
 
     gpio_write_pin(MUX_EN_PIN, 0);
     print("Calibrating...\n");
@@ -256,7 +243,7 @@ void matrix_init_custom(void) {
     all_rows_low();
     gpio_write_pin(MUX_EN_PIN, 1);
 
-    print("EC87 v3.6 READY\n\n");
+    print("EC87 v3.7 READY\n\n");
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {

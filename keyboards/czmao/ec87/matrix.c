@@ -1,15 +1,24 @@
 /* Copyright 2026 micahyy
  *
- * EC87 capacitive matrix — DRIVE-COLUMN / SENSE-ROW v3.1 (DEBUG)
+ * EC87 capacitive matrix — ROW RC-CHARGE TIMING v3.2 (DEBUG)
  *
- * PA1 (COM through 74HC4067) = push-pull output, drives selected column
- * PA2-PA7 = ADC1_IN2..IN7, analog inputs sensing the 6 rows
+ * Findings from v3.1: driving column HIGH and ADC-sensing rows produced
+ * 4080-4082 on EVERY row/column → rows have external pull-up resistors
+ * that pull them to VDD within microseconds, drowning any capacitive
+ * coupling signal in the ADC sample window.
  *
- * Fixes vs v3:
- *  - ADC CR1 SCAN bit set (was 0 → only ch2 converted, other 5 timed out)
- *  - Calibration loops have timeout
- *  - Baseline samples reduced 32→8 for fast startup
- *  - Early boot print to confirm firmware alive
+ * New approach — use the pull-ups as the timing resistor:
+ *   For each column (via 74HC4067):
+ *     1. PA1 drives selected column LOW (key cap references GND)
+ *     2. All PA2-PA7 driven LOW to discharge
+ *     3. Switch PA2-PA7 to floating input
+ *     4. External pull-ups charge each row; DWT polls all 6 simultaneously
+ *     5. Record CPU cycles for each row to cross VIH threshold
+ *   Pressed key → larger C_key → longer charge time → more cycles
+ *
+ * The selected column at LOW means that position's key cap adds C to GND.
+ * Non-selected columns are floating (mux disconnected) → their caps don't
+ * contribute to the RC constant.
  */
 
 #include "matrix.h"
@@ -26,30 +35,28 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define MUX_EN_PIN B12
 
 /* ── Tuning ──────────────────────────────────────────────────────────── */
-#define THRESHOLD_DELTA      200
-#define DISCHARGE_US         5
-#define SETTLE_US            3
-#define BASELINE_SAMPLES     8
+#define THRESHOLD_DELTA      8
+#define DISCHARGE_US         20
+#define MUX_SETTLE_US        2
+#define SAMPLES_PER_KEY      5
+#define BASELINE_SAMPLES     16
+#define TIMEOUT_CYCLES       20000
 #define DEBUG_PRINT_INTERVAL 20
-#define ADC_TIMEOUT          20000
 
 /* ── STM32F103 registers ─────────────────────────────────────────────── */
 #define EC_RCC_APB2ENR  (*(volatile uint32_t *)0x40021018)
-#define EC_RCC_CFGR     (*(volatile uint32_t *)0x40021004)
-
-#define EC_ADC1_SR      (*(volatile uint32_t *)0x40012400)
-#define EC_ADC1_CR1     (*(volatile uint32_t *)0x40012404)
-#define EC_ADC1_CR2     (*(volatile uint32_t *)0x40012408)
-#define EC_ADC1_SMPR2   (*(volatile uint32_t *)0x40012410)
-#define EC_ADC1_SQR1    (*(volatile uint32_t *)0x40012428)
-#define EC_ADC1_SQR3    (*(volatile uint32_t *)0x4001242C)
-#define EC_ADC1_DR      (*(volatile uint32_t *)0x4001244C)
 
 #define EC_GPIOA_CRL    (*(volatile uint32_t *)0x40010800)
 #define EC_GPIOA_BSRR   (*(volatile uint32_t *)0x40010810)
+#define EC_GPIOA_IDR    (*(volatile uint32_t *)0x40010808)
 
 #define EC_PA1_MASK     0x000000F0u
 #define EC_ROW_MASK     0xFFFFFF00u
+
+/* DWT */
+#define EC_DEMCR        (*(volatile uint32_t *)0xE000EDFC)
+#define EC_DWT_CTRL     (*(volatile uint32_t *)0xE0001000)
+#define EC_DWT_CYCCNT   (*(volatile uint32_t *)0xE0001004)
 
 /* ── State ───────────────────────────────────────────────────────────── */
 static uint16_t baseline[ROW_COUNT][COL_COUNT];
@@ -57,101 +64,96 @@ static uint16_t cap_raw[ROW_COUNT][COL_COUNT];
 static int16_t  cap_diff[ROW_COUNT][COL_COUNT];
 static uint8_t  scan_counter = 0;
 
-/* ── PA1 (COM) mode ──────────────────────────────────────────────────── */
+/* ── DWT ─────────────────────────────────────────────────────────────── */
 
-static inline void pa1_output_low(void) {
-    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
-    EC_GPIOA_BSRR = (1u << 17);
+static void dwt_init(void) {
+    EC_DEMCR |= (1u << 24);
+    EC_DWT_CYCCNT = 0;
+    EC_DWT_CTRL |= (1u << 0);
 }
 
-static inline void pa1_output_high(void) {
+static inline uint32_t dwt_now(void) {
+    return EC_DWT_CYCCNT;
+}
+
+/* ── PA1 (COM / column drive) ────────────────────────────────────────── */
+
+static inline void pa1_low(void) {
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_PA1_MASK) | (0x3u << 4);
-    EC_GPIOA_BSRR = (1u << 1);
+    EC_GPIOA_BSRR = (1u << 17);  /* BR1 */
 }
 
 /* ── Row pins PA2-PA7 ────────────────────────────────────────────────── */
 
 static inline void rows_discharge(void) {
+    /* Push-pull 50MHz output, all LOW */
     EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x33333300u);
-    EC_GPIOA_BSRR = (0x3Fu << 18);
+    EC_GPIOA_BSRR = (0x3Fu << 18);  /* BR2..BR7 */
 }
 
-static inline void rows_sense(void) {
-    EC_GPIOA_CRL &= ~EC_ROW_MASK;
+static inline void rows_float(void) {
+    /* Floating input: CNF=01, MODE=00 for PA2-PA7 */
+    EC_GPIOA_CRL = (EC_GPIOA_CRL & ~EC_ROW_MASK) | (0x44444400u);
 }
 
 /* ── Mux ─────────────────────────────────────────────────────────────── */
 
-static void mux_set_channel(uint8_t ch) {
+static void mux_set(uint8_t ch) {
     for (int i = 0; i < 4; i++)
         gpio_write_pin(mux_pins[i], (ch >> i) & 1);
 }
 
-/* ── ADC ─────────────────────────────────────────────────────────────── */
+/* ── Measure one column: 6 rows simultaneously ──────────────────────── */
 
-static void adc_init(void) {
-    /* GPIOA + GPIOB + ADC1 clocks */
-    EC_RCC_APB2ENR |= (1u << 2) | (1u << 3) | (1u << 9);
-    /* ADCCLK = PCLK2/6 = 12 MHz */
-    EC_RCC_CFGR = (EC_RCC_CFGR & ~(3u << 14)) | (2u << 14);
+static void measure_column(uint8_t col, uint16_t *times) {
+    uint16_t samples[SAMPLES_PER_KEY][ROW_COUNT];
 
-    /* Power on ADC */
-    EC_ADC1_CR2 = 1u << 0;
-    wait_ms(2);
+    for (int s = 0; s < SAMPLES_PER_KEY; s++) {
+        mux_set(col);
+        pa1_low();
+        rows_discharge();
+        wait_us(DISCHARGE_US);
 
-    /* Reset calibration */
-    EC_ADC1_CR2 |= (1u << 3);
-    { volatile uint32_t t = 50000; while ((EC_ADC1_CR2 & (1u << 3)) && --t); }
+        rows_float();
+        wait_us(MUX_SETTLE_US);
 
-    /* Calibration */
-    EC_ADC1_CR2 |= (1u << 2);
-    { volatile uint32_t t = 200000; while ((EC_ADC1_CR2 & (1u << 2)) && --t); }
+        uint32_t t0 = dwt_now();
+        uint8_t remaining = 0x3Fu;
+        uint16_t t[6];
+        for (int r = 0; r < 6; r++) t[r] = TIMEOUT_CYCLES;
 
-    /* CR1: SCAN mode (bit8) = 1 */
-    EC_ADC1_CR1 = (1u << 8);
+        while (remaining) {
+            uint32_t elapsed = dwt_now() - t0;
+            if ((int32_t)elapsed > TIMEOUT_CYCLES) break;
 
-    /* CR2: ADON | EXTTRIG | EXTSEL=111 (SWSTART), CONT=0 */
-    EC_ADC1_CR2 = (1u << 0) | (1u << 20) | (7u << 17);
-
-    /* Sample time 239.5 cycles for ch0-9 (slowest, most accurate) */
-    EC_ADC1_SMPR2 = 0xFFFFFFFFu;
-
-    /* 6 conversions in sequence */
-    EC_ADC1_SQR1 = (5u << 20);
-    EC_ADC1_SQR3 = (2u)        /* rank1 IN2 (row0 PA2) */
-                 | (3u << 5)   /* rank2 IN3 (row1 PA3) */
-                 | (4u << 10)  /* rank3 IN4 (row2 PA4) */
-                 | (5u << 15)  /* rank4 IN5 (row3 PA5) */
-                 | (6u << 20)  /* rank5 IN6 (row4 PA6) */
-                 | (7u << 25); /* rank6 IN7 (row5 PA7) */
-}
-
-static void adc_scan_rows(uint16_t *out) {
-    EC_ADC1_CR2 |= (1u << 22);  /* SWSTART */
-    for (int i = 0; i < 6; i++) {
-        volatile uint32_t t = ADC_TIMEOUT;
-        while (!(EC_ADC1_SR & (1u << 1)) && --t);
-        out[i] = (uint16_t)(EC_ADC1_DR & 0xFFFu);
+            uint8_t pins = (uint8_t)((EC_GPIOA_IDR >> 2) & 0x3Fu);
+            uint8_t ready = pins & remaining;
+            if (ready) {
+                for (int r = 0; r < 6; r++) {
+                    if (ready & (1u << r)) {
+                        t[r] = (uint16_t)elapsed;
+                        remaining &= (uint8_t)~(1u << r);
+                    }
+                }
+            }
+        }
+        for (int r = 0; r < 6; r++) samples[s][r] = t[r];
     }
-}
 
-/* ── Read one column ─────────────────────────────────────────────────── */
-
-static void read_column(uint8_t col, uint16_t *vals) {
-    mux_set_channel(col);
-
-    pa1_output_low();
-    rows_discharge();
-    wait_us(DISCHARGE_US);
-
-    rows_sense();
-    pa1_output_high();
-    wait_us(SETTLE_US);
-
-    adc_scan_rows(vals);
-
-    pa1_output_low();
-    rows_discharge();
+    /* Median filter for each row */
+    for (int r = 0; r < 6; r++) {
+        /* Simple 5-point median: sort and pick middle */
+        uint16_t a[5];
+        for (int s = 0; s < SAMPLES_PER_KEY; s++) a[s] = samples[s][r];
+        /* Insertion sort */
+        for (int i = 1; i < SAMPLES_PER_KEY; i++) {
+            uint16_t key = a[i];
+            int j = i - 1;
+            while (j >= 0 && a[j] > key) { a[j+1] = a[j]; j--; }
+            a[j+1] = key;
+        }
+        times[r] = a[SAMPLES_PER_KEY / 2];
+    }
 }
 
 /* ── Baseline ────────────────────────────────────────────────────────── */
@@ -160,12 +162,12 @@ static void calibrate_baseline(void) {
     gpio_write_pin(MUX_EN_PIN, 0);
     wait_us(100);
 
-    uint16_t vals[6];
+    uint16_t times[6];
     for (uint8_t col = 0; col < COL_COUNT; col++) {
         uint32_t sums[6] = {0};
         for (int s = 0; s < BASELINE_SAMPLES; s++) {
-            read_column(col, vals);
-            for (int r = 0; r < 6; r++) sums[r] += vals[r];
+            measure_column(col, times);
+            for (int r = 0; r < 6; r++) sums[r] += times[r];
         }
         for (int r = 0; r < 6; r++)
             baseline[r][col] = (uint16_t)(sums[r] / BASELINE_SAMPLES);
@@ -175,8 +177,8 @@ static void calibrate_baseline(void) {
 /* ── Debug ───────────────────────────────────────────────────────────── */
 
 static void debug_print(void) {
-    uint16_t max_raw = 0, min_raw = 4095;
-    int16_t  max_diff = -4096;
+    uint16_t max_raw = 0, min_raw = 65535;
+    int16_t  max_diff = -32768;
     uint8_t  mr_r = 0, mr_c = 0, md_r = 0, md_c = 0;
 
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
@@ -187,21 +189,21 @@ static void debug_print(void) {
         }
     }
 
-    xprintf("EC87v31 raw %u-%u @R%uC%u | Dmax=%d @R%uC%u\n",
-            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c);
+    xprintf("EC87v32 cyc %u-%u @R%dC%d | Dmax=%d @R%dC%d thr=%d\n",
+            min_raw, max_raw, mr_r, mr_c, max_diff, md_r, md_c, THRESHOLD_DELTA);
 
     print("RAW:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++)
-            xprintf(" %4u", cap_raw[r][c]);
+            xprintf(" %5u", cap_raw[r][c]);
         print("\n");
     }
     print("DIFF:\n");
     for (uint8_t r = 0; r < ROW_COUNT; r++) {
         xprintf("R%d:", r);
         for (uint8_t c = 0; c < COL_COUNT; c++)
-            xprintf(" %4d", cap_diff[r][c]);
+            xprintf(" %5d", cap_diff[r][c]);
         print("\n");
     }
     print("\n");
@@ -213,7 +215,7 @@ void matrix_init_custom(void) {
     debug_enable = true;
     debug_matrix = true;
 
-    print("\nEC87 v3.1 booting...\n");
+    print("\nEC87 v3.2 booting...\n");
 
     EC_RCC_APB2ENR |= (1u << 2) | (1u << 3);  /* GPIOA + GPIOB */
 
@@ -224,16 +226,20 @@ void matrix_init_custom(void) {
     gpio_set_pin_output(MUX_EN_PIN);
     gpio_write_pin(MUX_EN_PIN, 1);
 
-    print("ADC init...\n");
-    adc_init();
-    print("Baseline calibration...\n");
+    dwt_init();
+    print("DWT ready\n");
+
+    gpio_write_pin(MUX_EN_PIN, 0);
+    print("Calibrating baseline...\n");
     calibrate_baseline();
-    print("EC87 v3.1 READY - drive col PA1, sense rows PA2-7 via ADC\n\n");
+    gpio_write_pin(MUX_EN_PIN, 1);
+
+    print("EC87 v3.2 READY - row RC timing, ext pull-up as R\n\n");
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     bool changed = false;
-    uint16_t vals[6];
+    uint16_t times[6];
 
     gpio_write_pin(MUX_EN_PIN, 0);
 
@@ -241,10 +247,10 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
         current_matrix[row] = 0;
 
     for (uint8_t col = 0; col < COL_COUNT; col++) {
-        read_column(col, vals);
+        measure_column(col, times);
 
         for (uint8_t row = 0; row < ROW_COUNT; row++) {
-            uint16_t v = vals[row];
+            uint16_t v = times[row];
             int16_t  diff = (int16_t)v - (int16_t)baseline[row][col];
 
             cap_raw[row][col]  = v;

@@ -34,11 +34,35 @@ jobs:
       - name: Build DS60 via (bin)
         run: make czmao/ds60:via COLOR=false
 
+      - name: Build left64 default (bin)
+        run: make czmao/left64:default COLOR=false
+
+      - name: Build left64 via (bin)
+        run: make czmao/left64:via COLOR=false
+
+      - name: Build 3000 default (bin)
+        run: make czmao/3000:default COLOR=false
+
+      - name: Build 3000 via (bin)
+        run: make czmao/3000:via COLOR=false
+
+      - name: Build A24 60_multy default (bin)
+        run: make czmao/a24_60:default COLOR=false
+
+      - name: Build A24 60_multy via (bin)
+        run: make czmao/a24_60:via COLOR=false
+
       - name: Collect outputs
         run: |
           cp -v .build/czmao_ec87_default.uf2 ./czmao_ec87_default.uf2
           cp -v .build/czmao_ec87_via.uf2 ./czmao_ec87_via.uf2
           cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
+          cp -v .build/czmao_left64_RGB_default.bin ./czmao_left64_default.bin
+          cp -v .build/czmao_left64_RGB_via.bin ./czmao_left64_via.bin
+          cp -v .build/czmao_3000_default.bin ./czmao_3000_default.bin
+          cp -v .build/czmao_3000_via.bin ./czmao_3000_via.bin
+          cp -v .build/czmao_a24_60_multy_default.bin ./czmao_a24_60_multy_default.bin
+          cp -v .build/czmao_a24_60_multy_via.bin ./czmao_a24_60_multy_via.bin
           ls -la *.uf2 *.bin
 
       - name: Upload artifacts

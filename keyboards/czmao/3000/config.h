@@ -22,6 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define RGB_MATRIX_LED_COUNT 121
 #define RGB_MATRIX_FRAMEBUFFER_EFFECTS
 #define RGB_MATRIX_KEYPRESSES
-#define RGB_DISABLE_WHEN_USB_SUSPENDED
+#define RGB_MATRIX_SLEEP
 
 #define USB_MAX_POWER_CONSUMPTION 500
+
+#define WEAR_LEVELING_LOGICAL_SIZE 2048
+#define WEAR_LEVELING_BACKING_SIZE 4096

@@ -6,6 +6,19 @@
         "rows": 6,
         "cols": 16
     },
+    "keycodes": [
+        "qmk_rgb_matrix_keycodes"
+    ],
+    "menus": [
+        "qmk_rgb_matrix"
+    ],
+    "customKeycodes": [
+        {
+            "name": "Factory Reset",
+            "title": "Factory Reset (EEPROM Init)",
+            "shortName": "EE RST"
+        }
+    ],
     "labels": [
         "Split Backspace",
         "ISO enter",

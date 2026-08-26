@@ -3,9 +3,12 @@ LTO_ENABLE = yes
 CUSTOM_MATRIX = lite
 SRC += matrix.c
 
-CONSOLE_ENABLE = no
-MOUSEKEY_ENABLE = no
+# RAM-only EEPROM (no flash erase, safe with any matrix implementation)
+EEPROM_DRIVER = transient
 
-# 16KB UF2 bootloader, app only 48KB flash
-MCU_LDSCRIPT = STM32F103x8_uf2boot
-OPT = s
+# Debug console output over USB HID
+CONSOLE_ENABLE = no
+
+# Use uf2boot 16KB bootloader, 128KB flash on APM32F103CBT6
+MCU_LDSCRIPT = STM32F103xB_uf2boot
+OPT = 2

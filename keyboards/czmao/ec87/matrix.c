@@ -34,8 +34,8 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define SETTLE_US       5
 #define MUX_SETTLE_US   3
 #define CALIB_SAMPLES   16
-#define PRESS_DELTA     120
-#define RELEASE_DELTA   80
+#define PRESS_DELTA     100
+#define RELEASE_DELTA   60
 #define DEBOUNCE_MS     5
 
 static uint16_t baseline[TOTAL_KEYS];
@@ -134,6 +134,10 @@ void matrix_init_custom(void) {
     calibrate();
     memset(key_state, 0, sizeof(key_state));
     memset(last_change, 0, sizeof(last_change));
+
+    // debug_enable = true;
+    // debug_matrix = true;
+    // debug disabled in production
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {

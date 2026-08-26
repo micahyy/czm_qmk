@@ -14,7 +14,7 @@
     "features": {
         "bootmagic": true,
         "extrakey": true,
-        "mousekey": false,
+        "mousekey": true,
         "nkro": true,
         "rgb_matrix": true
     },
@@ -33,13 +33,41 @@
         "animations": {
             "gradient_left_right": true,
             "breathing": true,
+            "band_sat": true,
+            "band_val": true,
+            "band_pinwheel_sat": true,
+            "band_pinwheel_val": true,
+            "band_spiral_sat": true,
+            "band_spiral_val": true,
             "cycle_all": true,
             "cycle_left_right": true,
             "cycle_up_down": true,
             "rainbow_moving_chevron": true,
+            "cycle_out_in": true,
+            "cycle_out_in_dual": true,
+            "cycle_pinwheel": true,
+            "cycle_spiral": true,
+            "dual_beacon": true,
+            "rainbow_beacon": true,
+            "rainbow_pinwheels": true,
+            "raindrops": true,
+            "jellybean_raindrops": true,
+            "hue_breathing": true,
+            "hue_pendulum": true,
+            "hue_wave": true,
+            "typing_heatmap": true,
             "solid_reactive_simple": true,
             "solid_reactive": true,
-            "solid_reactive_cross": true
+            "solid_reactive_wide": true,
+            "solid_reactive_multiwide": true,
+            "solid_reactive_cross": true,
+            "solid_reactive_multicross": true,
+            "solid_reactive_nexus": true,
+            "solid_reactive_multinexus": true,
+            "splash": true,
+            "multisplash": true,
+            "solid_splash": true,
+            "solid_multisplash": true
         },
         "driver": "ws2812",
         "max_brightness": 180,
@@ -53,8 +81,17 @@
                     0,
                     0
                 ],
-                "x": 0,
-                "y": 0
+                "x": 4,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    1
+                ],
+                "x": 22,
+                "y": 6
             },
             {
                 "flags": 2,
@@ -62,8 +99,8 @@
                     0,
                     2
                 ],
-                "x": 24,
-                "y": 0
+                "x": 41,
+                "y": 6
             },
             {
                 "flags": 2,
@@ -71,179 +108,89 @@
                     0,
                     4
                 ],
-                "x": 48,
-                "y": 0
+                "x": 59,
+                "y": 6
             },
             {
                 "flags": 2,
                 "matrix": [
                     0,
-                    6
-                ],
-                "x": 72,
-                "y": 0
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    0,
-                    8
-                ],
-                "x": 96,
-                "y": 0
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    0,
-                    10
-                ],
-                "x": 120,
-                "y": 0
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    0,
-                    12
-                ],
-                "x": 144,
-                "y": 0
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    0,
-                    15
-                ],
-                "x": 204,
-                "y": 0
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    1,
-                    0
-                ],
-                "x": 0,
-                "y": 18
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    1,
-                    6
-                ],
-                "x": 72,
-                "y": 18
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    1,
-                    15
-                ],
-                "x": 204,
-                "y": 18
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    2,
-                    0
-                ],
-                "x": 0,
-                "y": 36
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    2,
-                    4
-                ],
-                "x": 54,
-                "y": 36
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    2,
-                    8
-                ],
-                "x": 108,
-                "y": 36
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    2,
-                    15
-                ],
-                "x": 204,
-                "y": 36
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    3,
-                    0
-                ],
-                "x": 0,
-                "y": 54
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    3,
-                    4
-                ],
-                "x": 54,
-                "y": 54
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    3,
-                    8
-                ],
-                "x": 108,
-                "y": 54
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    3,
-                    14
-                ],
-                "x": 204,
-                "y": 54
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    4,
-                    0
-                ],
-                "x": 0,
-                "y": 72
-            },
-            {
-                "flags": 2,
-                "matrix": [
-                    4,
                     5
                 ],
-                "x": 66,
-                "y": 72
+                "x": 77,
+                "y": 6
             },
             {
                 "flags": 2,
                 "matrix": [
-                    4,
+                    0,
+                    6
+                ],
+                "x": 95,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    7
+                ],
+                "x": 113,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    8
+                ],
+                "x": 131,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    9
+                ],
+                "x": 149,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    11
+                ],
+                "x": 167,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
                     12
                 ],
+                "x": 184,
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    13
+                ],
                 "x": 204,
-                "y": 72
+                "y": 6
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    0,
+                    15
+                ],
+                "x": 222,
+                "y": 6
             },
             {
                 "flags": 2,
@@ -251,26 +198,62 @@
                     5,
                     0
                 ],
-                "x": 0,
-                "y": 90
+                "x": 5,
+                "y": 57
             },
             {
                 "flags": 2,
                 "matrix": [
                     5,
+                    1
+                ],
+                "x": 22,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
                     3
                 ],
-                "x": 48,
-                "y": 90
+                "x": 40,
+                "y": 57
             },
             {
                 "flags": 2,
                 "matrix": [
                     5,
+                    6
+                ],
+                "x": 58,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
+                    6
+                ],
+                "x": 76,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
                     7
                 ],
-                "x": 156,
-                "y": 90
+                "x": 94,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
+                    8
+                ],
+                "x": 112,
+                "y": 57
             },
             {
                 "flags": 2,
@@ -278,8 +261,53 @@
                     5,
                     10
                 ],
+                "x": 131,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    5,
+                    11
+                ],
+                "x": 149,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
+                    12
+                ],
+                "x": 168,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
+                    13
+                ],
+                "x": 185,
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    4,
+                    15
+                ],
                 "x": 204,
-                "y": 90
+                "y": 57
+            },
+            {
+                "flags": 2,
+                "matrix": [
+                    5,
+                    15
+                ],
+                "x": 222,
+                "y": 57
             }
         ],
         "sleep": true
@@ -714,6 +742,17 @@
                     "w": 1.5
                 },
                 {
+                    "label": "Enter",
+                    "matrix": [
+                        3,
+                        13
+                    ],
+                    "x": 13.5,
+                    "y": 2,
+                    "w": 1.5,
+                    "h": 2
+                },
+                {
                     "label": "Del",
                     "matrix": [
                         2,
@@ -850,14 +889,13 @@
                     "y": 3
                 },
                 {
-                    "label": "Enter",
+                    "label": "NuHS",
                     "matrix": [
                         3,
                         12
                     ],
                     "x": 12.75,
-                    "y": 3,
-                    "w": 2.25
+                    "y": 3
                 },
                 {
                     "label": "LShift",
@@ -870,14 +908,13 @@
                     "w": 2.25
                 },
                 {
-                    "label": "ISO\\",
+                    "label": "NuBS",
                     "matrix": [
                         4,
                         1
                     ],
-                    "x": 1.25,
-                    "y": 4,
-                    "w": 1.25
+                    "x": 2.25,
+                    "y": 4
                 },
                 {
                     "label": "Z",
@@ -885,7 +922,7 @@
                         4,
                         2
                     ],
-                    "x": 2.25,
+                    "x": 3.25,
                     "y": 4
                 },
                 {
@@ -894,7 +931,7 @@
                         4,
                         3
                     ],
-                    "x": 3.25,
+                    "x": 4.25,
                     "y": 4
                 },
                 {
@@ -903,7 +940,7 @@
                         4,
                         4
                     ],
-                    "x": 4.25,
+                    "x": 5.25,
                     "y": 4
                 },
                 {
@@ -912,7 +949,7 @@
                         4,
                         5
                     ],
-                    "x": 5.25,
+                    "x": 6.25,
                     "y": 4
                 },
                 {
@@ -921,7 +958,7 @@
                         4,
                         6
                     ],
-                    "x": 6.25,
+                    "x": 7.25,
                     "y": 4
                 },
                 {
@@ -930,7 +967,7 @@
                         4,
                         7
                     ],
-                    "x": 7.25,
+                    "x": 8.25,
                     "y": 4
                 },
                 {
@@ -939,7 +976,7 @@
                         4,
                         8
                     ],
-                    "x": 8.25,
+                    "x": 9.25,
                     "y": 4
                 },
                 {
@@ -948,7 +985,7 @@
                         4,
                         9
                     ],
-                    "x": 9.25,
+                    "x": 10.25,
                     "y": 4
                 },
                 {
@@ -957,7 +994,7 @@
                         4,
                         10
                     ],
-                    "x": 10.25,
+                    "x": 11.25,
                     "y": 4
                 },
                 {
@@ -966,7 +1003,7 @@
                         4,
                         11
                     ],
-                    "x": 11.25,
+                    "x": 12.25,
                     "y": 4
                 },
                 {
@@ -975,9 +1012,9 @@
                         4,
                         12
                     ],
-                    "x": 12.25,
+                    "x": 13.25,
                     "y": 4,
-                    "w": 2.75
+                    "w": 1.75
                 },
                 {
                     "label": "MO(2)",
@@ -985,7 +1022,7 @@
                         4,
                         13
                     ],
-                    "x": 15.25,
+                    "x": 15,
                     "y": 4
                 },
                 {
@@ -1053,7 +1090,7 @@
                         5,
                         7
                     ],
-                    "x": 7.25,
+                    "x": 10,
                     "y": 5,
                     "w": 2.75
                 },

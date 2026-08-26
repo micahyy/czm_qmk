@@ -55,7 +55,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  _______, KC_PGUP,
-        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+        _______, _______, _______, _______, _______, _______, MO(2)  , _______, _______, _______,
         KC_HOME, KC_PGDN, KC_END
     ),
 
@@ -64,7 +64,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,
-        _______,QK_BOOT,_______,
+        _______,_______,_______,
         _______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,
         EC_RGB_TOG,_______,EC_RGB_VALD,EC_RGB_VALU,EC_RGB_HUED,EC_RGB_HUEU,EC_RGB_SATD,EC_RGB_SATU,EC_RGB_SPDD,EC_RGB_SPDU,EC_RGB_NEXT,EC_RGB_PREV,_______,  _______,_______,
@@ -86,6 +86,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 
 };
+
+/* LCTRL + MO(1) + MO(2) (RALT on Layer 1) = enter bootloader */
+static bool boot_combo_active = false;
+
+void matrix_scan_user(void) {
+    if (boot_combo_active) { return; }
+
+    if ((get_mods() & MOD_BIT(KC_LCTRL)) && layer_state_is(1) && layer_state_is(2)) {
+        boot_combo_active = true;
+        reset_keyboard();
+    }
+}
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (!record->event.pressed) { return true; }

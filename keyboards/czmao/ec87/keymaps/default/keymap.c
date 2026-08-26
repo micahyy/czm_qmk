@@ -1,16 +1,6 @@
 /* Copyright 2026 micahyy */
 #include QMK_KEYBOARD_H
 
-enum custom_keycodes {
-    EC_BOOT = SAFE_RANGE,
-    EC_EEPRST,
-};
-
-static bool fn_pressed = false;
-static bool ralt_pressed = false;
-static bool lctrl_pressed = false;
-static bool esc_pressed = false;
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [0] = LAYOUT(
@@ -23,11 +13,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_CAPS    , KC_A       , KC_S       , KC_D       , KC_F       , KC_G       , KC_H       , KC_J       , KC_K       , KC_L       , KC_SCLN    , KC_QUOT    , KC_NUHS    ,
         KC_LSFT    , KC_NUBS    , KC_Z       , KC_X       , KC_C       , KC_V       , KC_B       , KC_N       , KC_M       , KC_COMM    , KC_DOT     , KC_SLSH    , KC_RSFT    , MO(1)      , KC_UP      ,
         KC_LCTL    , KC_LGUI    , KC_LALT    , KC_SPC     , KC_SPC     , KC_SPC     , KC_RALT    , KC_RGUI    , MO(1)      , KC_RCTL    ,
-        KC_LEFT    , KC_DOWN    , KC_RGHT    
+        KC_LEFT    , KC_DOWN    , KC_RGHT
     ),
 
     [1] = LAYOUT(
-        KC_GRV     , KC_BRID    , KC_BRIU    , KC_MCTL    , KC_LPAD    , _______    , _______    , KC_MPRV    , KC_MPLY    , KC_MNXT    , KC_MUTE    , KC_VOLD    , KC_VOLU    , _______    , _______    , _______    ,
+        RM_TOGG    , RM_VALD    , RM_VALU    , _______    , _______    , RM_NEXT    , RM_PREV    , KC_MPRV    , KC_MPLY    , KC_MNXT    , KC_MUTE    , KC_VOLD    , KC_VOLU    , _______    , QK_BOOT    , _______    ,
         _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , KC_DEL     , _______    , _______    ,
         _______    ,
         _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    ,
@@ -36,28 +26,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    ,
         _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , KC_PGUP    ,
         _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    , _______    ,
-        KC_HOME    , KC_PGDN    , KC_END     
+        KC_HOME    , KC_PGDN    , KC_END
     )
 
 };
-
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    uint8_t r = record->event.key.row;
-    uint8_t c = record->event.key.col;
-    if (r == 5 && c == 12) fn_pressed = record->event.pressed;
-    if (r == 5 && c == 10) ralt_pressed = record->event.pressed;
-    if (r == 5 && c == 0)  lctrl_pressed = record->event.pressed;
-    if (r == 0 && c == 0)  esc_pressed = record->event.pressed;
-    if (fn_pressed && ralt_pressed && lctrl_pressed) {
-        fn_pressed = ralt_pressed = lctrl_pressed = false;
-        reset_keyboard();
-        return false;
-    }
-    if (fn_pressed && ralt_pressed && esc_pressed) {
-        fn_pressed = ralt_pressed = esc_pressed = false;
-        eeconfig_init();
-        soft_reset_keyboard();
-        return false;
-    }
-    return true;
-}

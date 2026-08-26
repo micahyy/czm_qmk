@@ -16,21 +16,6 @@
 
 #include QMK_KEYBOARD_H
 
-enum custom_keycodes {
-    EC_EEPRST = QK_USER_0,
-    EC_RGB_TOG = QK_USER_1,
-    EC_RGB_NEXT = QK_USER_2,
-    EC_RGB_PREV = QK_USER_3,
-    EC_RGB_HUEU = QK_USER_4,
-    EC_RGB_HUED = QK_USER_5,
-    EC_RGB_SATU = QK_USER_6,
-    EC_RGB_SATD = QK_USER_7,
-    EC_RGB_VALU = QK_USER_8,
-    EC_RGB_VALD = QK_USER_9,
-    EC_RGB_SPDU = QK_USER_10,
-    EC_RGB_SPDD = QK_USER_11,
-};
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [0] = LAYOUT(
@@ -60,14 +45,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [2] = LAYOUT(
-        EC_EEPRST,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
+        EEP_RST,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,
         _______,_______,_______,
         _______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,
-        EC_RGB_TOG,_______,EC_RGB_VALD,EC_RGB_VALU,EC_RGB_HUED,EC_RGB_HUEU,EC_RGB_SATD,EC_RGB_SATU,EC_RGB_SPDD,EC_RGB_SPDU,EC_RGB_NEXT,EC_RGB_PREV,_______,  _______,_______,
+        RM_TOGG,_______,RM_VALD,RM_VALU,RM_HUED,RM_HUEU,RM_SATD,RM_SATU,RM_SPDD,RM_SPDU,RM_NEXT,RM_PREV,_______,  _______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,
         _______,_______,_______
     ),
@@ -87,59 +72,19 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
-/* LCTRL + MO(1) + MO(2) (RALT on Layer 1) = enter bootloader */
+/* LCTRL(5,0) + Fn/MO1(5,8) + RALT-key(5,6 which is MO2 on layer1) = bootloader. */
 static bool boot_combo_active = false;
+
+static inline bool phys_pressed(uint8_t row, uint8_t col) {
+    matrix_row_t r = matrix_get_row(row);
+    return (r & ((matrix_row_t)1 << col)) != 0;
+}
 
 void matrix_scan_user(void) {
     if (boot_combo_active) { return; }
 
-    if ((get_mods() & MOD_BIT(KC_LCTRL)) && layer_state_is(1) && layer_state_is(2)) {
+    if (phys_pressed(5, 0) && phys_pressed(5, 8) && phys_pressed(5, 6)) {
         boot_combo_active = true;
         reset_keyboard();
     }
-}
-
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    if (!record->event.pressed) { return true; }
-
-    switch (keycode) {
-        case EC_EEPRST:
-            eeconfig_init();
-            soft_reset_keyboard();
-            return false;
-        case EC_RGB_TOG:
-            rgb_matrix_toggle();
-            return false;
-        case EC_RGB_NEXT:
-            rgb_matrix_step();
-            return false;
-        case EC_RGB_PREV:
-            rgb_matrix_step_reverse();
-            return false;
-        case EC_RGB_HUEU:
-            rgb_matrix_increase_hue();
-            return false;
-        case EC_RGB_HUED:
-            rgb_matrix_decrease_hue();
-            return false;
-        case EC_RGB_SATU:
-            rgb_matrix_increase_sat();
-            return false;
-        case EC_RGB_SATD:
-            rgb_matrix_decrease_sat();
-            return false;
-        case EC_RGB_VALU:
-            rgb_matrix_increase_val();
-            return false;
-        case EC_RGB_VALD:
-            rgb_matrix_decrease_val();
-            return false;
-        case EC_RGB_SPDU:
-            rgb_matrix_increase_speed();
-            return false;
-        case EC_RGB_SPDD:
-            rgb_matrix_decrease_speed();
-            return false;
-    }
-    return true;
 }

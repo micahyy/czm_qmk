@@ -6,6 +6,18 @@
         "rows": 6,
         "cols": 16
     },
+    "labels": [
+        "Split Backspace",
+        "ISO enter",
+        "Split left shift",
+        "Split right shift",
+        [
+            "Space",
+            "6.25U",
+            "7U",
+            "Split Space"
+        ]
+    ],
     "layouts": {
         "keymap": [
             [

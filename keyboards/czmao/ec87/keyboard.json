@@ -8,8 +8,12 @@
     "usb": {
         "vid": "0x4A17",
         "pid": "0x0004",
-        "device_version": "1.0.0",
-        "force_nkro": true
+        "device_version": "1.0.0"
+    },
+    "host": {
+        "default": {
+            "nkro": true
+        }
     },
     "features": {
         "bootmagic": true,

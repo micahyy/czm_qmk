@@ -53,7 +53,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [2] = LAYOUT(
-        CZM_RESET,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
+        EE_CLR ,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,
@@ -84,9 +84,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         switch (keycode) {
             case CZM_RESET:
-                /* Reset VIA dynamic keymaps/macros back to the flash defaults. */
+                /* Reset VIA dynamic keymaps/macros back to the flash defaults,
+                 * then soft-reset so VIA reconnects and reloads the keymap. */
                 eeconfig_init_via();
-                layer_clear();
+                clear_keyboard();
+                soft_reset_keyboard();
                 return false;
             case CZM_BOOT:
                 /* Enter UF2 bootloader for firmware flashing. */
@@ -105,18 +107,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-/* VIA Lighting-tab "Keyboard" menu buttons.
- * Custom channel = id_custom_channel (0), value ids below must match the
- * button "content" arrays in 1243021316.json. */
+/* VIA "Keyboard" tab controls.
+ * Custom channel = id_custom_channel (0). Value ids must match the
+ * "content" arrays in the VIA definition json:
+ *   [name, channel=0, valueId] */
 enum via_czm_value {
-    id_czm_reset_kb      = 1, /* Reset keymap to defaults */
-    id_czm_bootloader_kb = 2, /* Enter UF2 bootloader */
-    id_czm_nkro_kb       = 3, /* Toggle NKRO / 6-key rollover */
+    id_czm_reset_kb      = 1, /* Reset keymap to defaults (action) */
+    id_czm_bootloader_kb = 2, /* Enter UF2 bootloader (action) */
+    id_czm_nkro_kb       = 3, /* NKRO on/off toggle (0 = 6KRO, 1 = NKRO) */
 };
 
 void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
+    /* data = [ command_id, channel_id, value_id, value_data ] */
     uint8_t *command_id = &data[0];
     uint8_t *channel_id = &data[1];
+    uint8_t *value_id   = &data[2];
+    uint8_t *value_data = &data[3];
 
     if (*channel_id != id_custom_channel) {
         *command_id = id_unhandled;
@@ -124,12 +130,25 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
     }
 
     switch (*command_id) {
-        case id_custom_set_value: {
-            uint8_t *value_id = &data[2];
+        case id_custom_get_value:
+            switch (*value_id) {
+                case id_czm_nkro_kb:
+                    *value_data = keymap_config.nkro ? 1 : 0;
+                    break;
+                default:
+                    *command_id = id_unhandled;
+                    break;
+            }
+            break;
+
+        case id_custom_set_value:
             switch (*value_id) {
                 case id_czm_reset_kb:
+                    /* Reset VIA keymaps/macros to flash defaults, then soft-reset
+                     * so VIA reconnects and reloads the default keymap. */
                     eeconfig_init_via();
-                    layer_clear();
+                    clear_keyboard();
+                    soft_reset_keyboard();
                     break;
                 case id_czm_bootloader_kb:
                     clear_keyboard();
@@ -137,7 +156,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
                     break;
                 case id_czm_nkro_kb:
                     clear_keyboard();
-                    keymap_config.nkro = !keymap_config.nkro;
+                    keymap_config.nkro = (*value_data != 0);
                     eeconfig_update_keymap(&keymap_config);
                     clear_keyboard();
                     break;
@@ -146,11 +165,11 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
                     break;
             }
             break;
-        }
-        case id_custom_get_value:
+
         case id_custom_save:
-            /* No persistent custom values to read/save. */
+            /* Nothing to persist beyond keymap_config (already saved above). */
             break;
+
         default:
             *command_id = id_unhandled;
             break;

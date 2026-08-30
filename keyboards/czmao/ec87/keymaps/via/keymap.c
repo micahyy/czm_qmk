@@ -97,7 +97,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 /* Toggle between full NKRO and 6-key rollover. */
                 clear_keyboard();
                 keymap_config.nkro = !keymap_config.nkro;
-                eeconfig_update_keymap(keymap_config.raw);
+                eeconfig_update_keymap(&keymap_config);
                 clear_keyboard();
                 return false;
         }

@@ -3,6 +3,11 @@
     "vendorId": "0x4A17",
     "productId": "0x0004",
     "matrix": {"rows": 6, "cols": 16},
+    "customKeycodes": [
+        {"name": "Reset Defaults", "title": "Reset keyboard to default keymap"},
+        {"name": "Bootloader", "title": "Enter bootloader mode for firmware flashing"},
+        {"name": "NKRO Toggle", "title": "Toggle between full NKRO and 6-key rollover"}
+    ],
     "keycodes": ["qmk_lighting"],
     "menus": [
         {

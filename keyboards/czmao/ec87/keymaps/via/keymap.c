@@ -105,6 +105,58 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
+/* VIA Lighting-tab "Keyboard" menu buttons.
+ * Custom channel = id_custom_channel (0), value ids below must match the
+ * button "content" arrays in 1243021316.json. */
+enum via_czm_value {
+    id_czm_reset_kb      = 1, /* Reset keymap to defaults */
+    id_czm_bootloader_kb = 2, /* Enter UF2 bootloader */
+    id_czm_nkro_kb       = 3, /* Toggle NKRO / 6-key rollover */
+};
+
+void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
+    uint8_t *command_id = &data[0];
+    uint8_t *channel_id = &data[1];
+
+    if (*channel_id != id_custom_channel) {
+        *command_id = id_unhandled;
+        return;
+    }
+
+    switch (*command_id) {
+        case id_custom_set_value: {
+            uint8_t *value_id = &data[2];
+            switch (*value_id) {
+                case id_czm_reset_kb:
+                    eeconfig_init_via();
+                    layer_clear();
+                    break;
+                case id_czm_bootloader_kb:
+                    clear_keyboard();
+                    bootloader_jump();
+                    break;
+                case id_czm_nkro_kb:
+                    clear_keyboard();
+                    keymap_config.nkro = !keymap_config.nkro;
+                    eeconfig_update_keymap(&keymap_config);
+                    clear_keyboard();
+                    break;
+                default:
+                    *command_id = id_unhandled;
+                    break;
+            }
+            break;
+        }
+        case id_custom_get_value:
+        case id_custom_save:
+            /* No persistent custom values to read/save. */
+            break;
+        default:
+            *command_id = id_unhandled;
+            break;
+    }
+}
+
 /* LCTRL(5,0) + Fn/MO1(5,8) + RALT-key(5,6 which is MO2 on layer1) = bootloader. */
 static bool boot_combo_active = false;
 

@@ -16,6 +16,14 @@
 
 #include QMK_KEYBOARD_H
 
+/* VIA custom keycodes. Order must match "customKeycodes" in 1243021316.json:
+ * 0 = Reset Defaults, 1 = Bootloader, 2 = NKRO Toggle. */
+enum via_custom_keycodes {
+    CZM_RESET = QK_USER,
+    CZM_BOOT,
+    CZM_NKRO,
+};
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [0] = LAYOUT(
@@ -45,7 +53,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [2] = LAYOUT(
-        EE_CLR,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
+        CZM_RESET,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,
@@ -72,6 +80,31 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        switch (keycode) {
+            case CZM_RESET:
+                /* Reset VIA dynamic keymaps/macros back to the flash defaults. */
+                eeconfig_init_via();
+                layer_clear();
+                return false;
+            case CZM_BOOT:
+                /* Enter UF2 bootloader for firmware flashing. */
+                clear_keyboard();
+                bootloader_jump();
+                return false;
+            case CZM_NKRO:
+                /* Toggle between full NKRO and 6-key rollover. */
+                clear_keyboard();
+                keymap_config.nkro = !keymap_config.nkro;
+                eeconfig_update_keymap(keymap_config.raw);
+                clear_keyboard();
+                return false;
+        }
+    }
+    return true;
+}
+
 /* LCTRL(5,0) + Fn/MO1(5,8) + RALT-key(5,6 which is MO2 on layer1) = bootloader. */
 static bool boot_combo_active = false;
 
@@ -88,4 +121,3 @@ void matrix_scan_user(void) {
         reset_keyboard();
     }
 }
-

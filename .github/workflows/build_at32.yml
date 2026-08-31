@@ -7,6 +7,10 @@ on:
       - 'keyboards/czmao/gamer/lite/**'
       - 'platforms/chibios/**'
       - 'vendor/chibios-contrib-at32f403a/**'
+      - '.gitmodules'
+      - 'lib/chibios-contrib'
+      - 'lib/python/qmk/**'
+      - 'data/schemas/**'
       - '.github/workflows/build_at32.yml'
   workflow_dispatch:
 

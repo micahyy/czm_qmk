@@ -12,11 +12,6 @@
     limitations under the License.
 */
 
-/*
- * Board file for AT32F403ARCT7 (LQFP64, 256KB Flash, 96KB SRAM).
- * Pin-to-pin compatible with STM32F103RBT6 / APM32F103RBT6.
- */
-
 #ifndef BOARD_H
 #define BOARD_H
 
@@ -79,13 +74,13 @@
  */
 #define BOARD_AT32F403_7xx
 #define BOARD_AT32F403A
-#define BOARD_NAME               "AT32F403ARCT7"
+#define BOARD_NAME               "AT32F403A"
 
-/* Target device: AT32F403ARCT7 = LQFP64, 256KB Flash (RC density).
- * The part define selects the peripheral set in the CMSIS device header
- * (AT32F403Axx/AT32F403ARx are derived automatically). No density macro
- * (AT32F403AxC/xE/xG) is defined, so the HAL uses the defaults for a
- * single 256KB flash bank (128 sectors of 2KB). */
+/* Target device: AT32F403ARCT7 - LQFP64 (pin-to-pin with STM32/APM32F103RBT6),
+ * 256KB Flash. Selects the LQFP64 peripheral set (AT32F403ARx in the
+ * ChibiOS-Contrib registry), enabling GPIOC full range + GPIOD which the
+ * GamerLite matrix (PC4-PC12, PD2) requires. Flash density is limited by the
+ * AT32F403AxC linker script (256KB). */
 #define AT32F403ARCT7
 
 #if !defined(AT32F403_7xx)

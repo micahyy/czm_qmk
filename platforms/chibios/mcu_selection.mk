@@ -913,28 +913,27 @@ ifneq ($(findstring AT32F403A, $(MCU)),)
 
   ## chip/board settings
   # - the next two should match the directories in
-  #   <chibios[-contrib]>/os/hal/ports/$(MCU_PORT_NAME)/$(MCU_SERIES)
-  #   OR
   #   <chibios[-contrib]>/os/hal/ports/$(MCU_FAMILY)/$(MCU_SERIES)
   MCU_FAMILY = AT32
   MCU_SERIES = AT32F403_7xx
 
-  # Linker script to use
-  # - it should exist either in <chibios>/os/common/startup/ARMCMx/compilers/GCC/ld/
-  #   or <chibios-contrib>/os/common/startup/ARMCMx/compilers/GCC/ld/
+  # AT32F403A HAL port lives in ChibiOS-Contrib (zhaqian12 snapshot)
+  USE_CHIBIOS_CONTRIB = yes
+
+  # Linker script to use (provided by ChibiOS-Contrib)
   MCU_LDSCRIPT ?= AT32F403AxC
 
-  # Startup code to use
-  #  - it should exist in <chibios-contrib>/os/common/startup/ARMCMx/compilers/GCC/mk/
+  # Startup code to use (provided by ChibiOS-Contrib)
   MCU_STARTUP ?= at32f403_7xx
 
-  # Board: it should exist either in <chibios>/os/hal/boards/,
-  # <keyboard_dir>/boards/, or platforms/chibios/boards/
+  # Board: platforms/chibios/boards/GENERIC_AT32_F403A
   BOARD ?= GENERIC_AT32_F403A
 
   USE_FPU ?= yes
 
-  # Bootloader address for AT32 DFU
+  UF2_FAMILY ?= AT32F403_7
+
+  # Bootloader address for AT32 DFU (ROM DFU base for F403A)
   AT32_BOOTLOADER_ADDRESS ?= 0x1FFFB000
 endif
 

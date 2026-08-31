@@ -28,6 +28,18 @@ OPT_OS = chibios
 CHIBIOS = $(TOP_DIR)/lib/chibios
 CHIBIOS_CONTRIB = $(TOP_DIR)/lib/chibios-contrib
 
+# Vendored ChibiOS-Contrib for AT32F403A support.
+# The qmk/ChibiOS-Contrib submodule does not carry the AT32F403_7xx HAL
+# port; a tested snapshot of the upstream AT32 ChibiOS-Contrib port is
+# shipped in-repo and used only when building for the supported MCUs.
+# Every other MCU keeps using the lib/chibios-contrib submodule.
+CHIBIOS_CONTRIB_VENDOR = $(TOP_DIR)/vendor/chibios-contrib-at32f403a
+ifneq ($(findstring AT32F403A, $(MCU)),)
+ifneq ($(wildcard $(CHIBIOS_CONTRIB_VENDOR)/os/hal/ports/AT32/AT32F403_7xx/platform.mk),)
+    CHIBIOS_CONTRIB = $(CHIBIOS_CONTRIB_VENDOR)
+endif
+endif
+
 #
 # Startup, Port and Platform support selection
 ##############################################################################

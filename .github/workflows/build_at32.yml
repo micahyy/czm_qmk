@@ -34,7 +34,7 @@ jobs:
         run: make czmao/gamer/lite/at32f403a:via COLOR=false
 
       - name: Build existing GamerLite STM32 target (regression check)
-        run: make czmao/gamer/lite:via COLOR=false
+        run: make czmao/gamer/lite/f103:via COLOR=false
 
       - name: Build existing EC87 target (regression check)
         run: make czmao/ec87:default COLOR=false
@@ -44,6 +44,7 @@ jobs:
           mkdir -p firmware
           cp -v .build/czmao_gamer_lite_at32f403a_default.* firmware/ 2>/dev/null || true
           cp -v .build/czmao_gamer_lite_at32f403a_via.* firmware/ 2>/dev/null || true
+          cp -v .build/czmao_gamer_lite_f103_via.* firmware/ 2>/dev/null || true
           ls -la firmware/ || true
 
       - name: Upload artifacts

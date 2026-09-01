@@ -39,6 +39,9 @@ jobs:
       - name: Build GamerLite AT32F403A (VIA keymap)
         run: make czmao/gamer/lite/at32f403a:via COLOR=false
 
+      - name: Build GamerLite AT32F403A (VIA keymap, CherryUF2 drag-and-drop .uf2)
+        run: make czmao/gamer/lite/at32f403a:uf2 COLOR=false
+
       - name: Build existing GamerLite STM32 target (regression check)
         run: make czmao/gamer/lite/f103:via COLOR=false
 
@@ -50,6 +53,7 @@ jobs:
           mkdir -p firmware
           cp -v .build/czmao_gamer_lite_at32f403a_default.* firmware/ 2>/dev/null || true
           cp -v .build/czmao_gamer_lite_at32f403a_via.* firmware/ 2>/dev/null || true
+          cp -v .build/czmao_gamer_lite_at32f403a_uf2.* firmware/ 2>/dev/null || true
           cp -v .build/czmao_gamer_lite_f103_via.* firmware/ 2>/dev/null || true
           ls -la firmware/ || true
 

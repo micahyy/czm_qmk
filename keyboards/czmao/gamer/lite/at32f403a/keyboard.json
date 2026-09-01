@@ -1,0 +1,9 @@
+{
+    "processor": "AT32F403A",
+    "bootloader": "at32-dfu",
+    "usb": {
+        "shared_endpoint": {
+            "keyboard": true
+        }
+    }
+}

@@ -904,6 +904,39 @@ ifneq ($(findstring AT32F415, $(MCU)),)
   AT32_BOOTLOADER_ADDRESS ?= 0x1FFFAC00
 endif
 
+ifneq ($(findstring AT32F403A, $(MCU)),)
+  # Cortex version
+  MCU = cortex-m4
+
+  # ARM version, CORTEX-M0/M1 are 6, CORTEX-M3/M4/M7 are 7
+  ARMV = 7
+
+  ## chip/board settings
+  # - the next two should match the directories in
+  #   <chibios[-contrib]>/os/hal/ports/$(MCU_FAMILY)/$(MCU_SERIES)
+  MCU_FAMILY = AT32
+  MCU_SERIES = AT32F403_7xx
+
+  # AT32F403A HAL port lives in ChibiOS-Contrib (zhaqian12 snapshot)
+  USE_CHIBIOS_CONTRIB = yes
+
+  # Linker script to use (provided by ChibiOS-Contrib)
+  MCU_LDSCRIPT ?= AT32F403AxC
+
+  # Startup code to use (provided by ChibiOS-Contrib)
+  MCU_STARTUP ?= at32f403_7xx
+
+  # Board: platforms/chibios/boards/GENERIC_AT32_F403A
+  BOARD ?= GENERIC_AT32_F403A
+
+  USE_FPU ?= yes
+
+  UF2_FAMILY ?= AT32F403_7
+
+  # Bootloader address for AT32 DFU (ROM DFU base for F403A)
+  AT32_BOOTLOADER_ADDRESS ?= 0x1FFFB000
+endif
+
 ifneq ($(findstring GD32VF103, $(MCU)),)
   # RISC-V
   MCU = risc-v

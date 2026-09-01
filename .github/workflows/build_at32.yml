@@ -1,0 +1,65 @@
+name: Build AT32F403A Firmware
+
+on:
+  push:
+    branches: [at32f403a]
+    paths:
+      - 'keyboards/czmao/gamer/lite/**'
+      - 'platforms/chibios/**'
+      - 'vendor/chibios-contrib-at32f403a/**'
+      - '.gitmodules'
+      - 'lib/chibios-contrib'
+      - 'lib/python/qmk/**'
+      - 'data/schemas/**'
+      - 'builddefs/**'
+      - 'quantum/**'
+      - '.github/workflows/build_at32.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout QMK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-arm-none-eabi binutils-arm-none-eabi \
+            dfu-util python3-pip >/dev/null
+          pip3 install -q qmk
+
+      - name: Build GamerLite AT32F403A (default keymap)
+        run: make czmao/gamer/lite/at32f403a:default COLOR=false
+
+      - name: Build GamerLite AT32F403A (VIA keymap)
+        run: make czmao/gamer/lite/at32f403a:via COLOR=false
+
+      - name: Build GamerLite AT32F403A (VIA keymap, CherryUF2 drag-and-drop .uf2)
+        run: make czmao/gamer/lite/at32f403a:uf2 COLOR=false
+
+      - name: Build existing GamerLite STM32 target (regression check)
+        run: make czmao/gamer/lite/f103:via COLOR=false
+
+      - name: Build existing EC87 target (regression check)
+        run: make czmao/ec87:default COLOR=false
+
+      - name: Collect outputs
+        run: |
+          mkdir -p firmware
+          cp -v .build/czmao_gamer_lite_at32f403a_default.* firmware/ 2>/dev/null || true
+          cp -v .build/czmao_gamer_lite_at32f403a_via.* firmware/ 2>/dev/null || true
+          cp -v .build/czmao_gamer_lite_at32f403a_uf2.* firmware/ 2>/dev/null || true
+          cp -v .build/czmao_gamer_lite_f103_via.* firmware/ 2>/dev/null || true
+          ls -la firmware/ || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamerlite_at32f403a
+          path: firmware/
+          if-no-files-found: warn

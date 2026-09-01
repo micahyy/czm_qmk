@@ -1,8 +1,8 @@
-name: Build AT32F403A Firmware
+name: Build CZMAO Firmware (AT32 + f103/ec87 regression)
 
 on:
   push:
-    branches: [at32f403a]
+    branches: [main, at32f403a]
     paths:
       - 'keyboards/czmao/gamer/lite/**'
       - 'platforms/chibios/**'

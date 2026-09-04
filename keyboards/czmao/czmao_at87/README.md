@@ -1,3 +1,6 @@
+还没有完成，不要用
+
+
 # CZMAO AT87
 
 An 87-key (TKL) mechanical keyboard PCB powered by AT32F405RCT7-7, featuring 8000Hz USB polling.

@@ -1,0 +1,52 @@
+name: Build Rush60 UF2 Firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'keyboards/czmao/rush60/**'
+      - '.github/workflows/build_rush60.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout QMK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi dfu-util python3-pip
+          pip3 install qmk
+
+      - name: Build firmware
+        run: |
+          make czmao/rush60:default COLOR=false
+
+      - name: Convert to UF2
+        run: |
+          set -e
+          BIN_FILE=$(find .build -name "czmao_rush60_default.bin" | head -1)
+          echo "Found binary: $BIN_FILE"
+          cp "$BIN_FILE" "czmao_rush60_default.bin"
+          python3 keyboards/czmao/rush60/scripts/bin2uf2.py \
+            -a 0x08004000 \
+            -f 0xf35c900d \
+            "czmao_rush60_default.bin" \
+            "czmao_rush60_default.uf2"
+          echo "=== Output ==="
+          ls -la czmao_rush60_default.*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: czmao_rush60_default_uf2
+          path: |
+            *.uf2
+            *.bin
+          if-no-files-found: error

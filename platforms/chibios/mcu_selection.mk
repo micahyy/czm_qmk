@@ -853,18 +853,23 @@ ifneq ($(findstring AT32F405, $(MCU)),)
 
   ## chip/board settings
   MCU_FAMILY = AT32
-  MCU_SERIES = AT32F402_405
+  MCU_SERIES = AT32F402_5xx
+
+  # AT32F405 HAL port lives in ChibiOS-Contrib
+  USE_CHIBIOS_CONTRIB = yes
 
   # Linker script (256KB Flash for RC)
   MCU_LDSCRIPT ?= AT32F405xC
 
   # Startup code
-  MCU_STARTUP ?= at32f405
+  MCU_STARTUP ?= at32f402_5xx
 
   # Board
-  BOARD ?= GENERIC_AT32_F415XX
+  BOARD ?= GENERIC_AT32_F405XX
 
   USE_FPU ?= yes
+
+  UF2_FAMILY ?= AT32F405_7
 
   # Bootloader address for AT32 DFU
   AT32_BOOTLOADER_ADDRESS ?= 0x1FFFAC00

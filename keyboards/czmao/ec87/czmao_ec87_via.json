@@ -277,7 +277,7 @@
           "label": "Backlight",
           "content": [
             {
-              "label": "Brightness / 亮度",
+              "label": "Brightness",
               "type": "range",
               "options": [
                 0,
@@ -290,7 +290,7 @@
               ]
             },
             {
-              "label": "Effect / 灯效",
+              "label": "Effect",
               "type": "dropdown",
               "content": [
                 "id_qmk_rgb_matrix_effect",
@@ -347,7 +347,7 @@
             },
             {
               "showIf": "{id_qmk_rgb_matrix_effect} != 0",
-              "label": "Effect Speed / 动画速度",
+              "label": "Effect Speed",
               "type": "range",
               "options": [
                 0,
@@ -361,7 +361,7 @@
             },
             {
               "showIf": "{id_qmk_rgb_matrix_effect} != 0 && {id_qmk_rgb_matrix_effect} != 24 && {id_qmk_rgb_matrix_effect} != 28 && {id_qmk_rgb_matrix_effect} != 29 && {id_qmk_rgb_matrix_effect} != 32",
-              "label": "Color / 颜色",
+              "label": "Color",
               "type": "color",
               "content": [
                 "id_qmk_rgb_matrix_color",

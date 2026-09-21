@@ -26,3 +26,22 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 
 };
+
+/* Bootloader combo (fixed rule, applies to default + via):
+ *   LCtrl(5,0) + Fn/MO1(5,8) + RAlt(5,6) -> reset into bootloader. */
+static bool boot_combo_active = false;
+
+static inline bool phys_pressed(uint8_t row, uint8_t col) {
+    matrix_row_t r = matrix_get_row(row);
+    return (r & ((matrix_row_t)1 << col)) != 0;
+}
+
+void matrix_scan_user(void) {
+    if (boot_combo_active) { return; }
+
+    if (phys_pressed(5, 0) && phys_pressed(5, 8) && phys_pressed(5, 6)) {
+        boot_combo_active = true;
+        reset_keyboard();
+    }
+}
+

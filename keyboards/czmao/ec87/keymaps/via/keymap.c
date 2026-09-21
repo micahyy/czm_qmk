@@ -210,8 +210,8 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
     }
 }
 
-/* Bootloader combo (new matrix): LCtrl(5,0) + FN1(5,11) + RALT(5,9).
- * Bottom row has empty matrix slots at C3/C5/C8, so FN1/RALT moved. */
+/* Bootloader combo (fixed rule, applies to default + via):
+ *   LCtrl(5,0) + Fn/MO1(5,8) + RAlt(5,6) -> reset into bootloader. */
 static bool boot_combo_active = false;
 
 static inline bool phys_pressed(uint8_t row, uint8_t col) {

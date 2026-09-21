@@ -46,7 +46,7 @@ jobs:
         run: make czmao/gamer/lite/f103:via COLOR=false
 
       - name: Build existing EC87 target (regression check)
-        run: make czmao/ec87:default COLOR=false
+        run: make czmao/ec87:via COLOR=false
 
       - name: Collect outputs
         run: |

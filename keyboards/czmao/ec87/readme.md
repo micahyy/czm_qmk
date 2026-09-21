@@ -35,7 +35,7 @@
 ## Building
 
 ```bash
-make czmao/ec87:default
+make czmao/ec87:via
 ```
 
 ## Flashing
@@ -43,7 +43,7 @@ make czmao/ec87:default
 Enter STM32duino bootloader mode (hold BOOT0 + press RESET), then:
 
 ```bash
-make czmao/ec87:default:flash
+make czmao/ec87:via:flash
 ```
 
 ## Capacitive Sensing

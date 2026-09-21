@@ -44,31 +44,31 @@ static bool flash_sr_ok(void) {
     return !(FLASH_SR & (SR_PGERR | SR_WRPRTERR));
 }
 
-bool ec_store_erase(void) {
+bool ec_flash_erase_page(uint32_t page_addr) {
     __disable_irq();
     bool ok = false;
     do {
         if (!flash_unlock()) break;
         flash_wait_ready();
         FLASH_CR |= CR_PER;
-        FLASH_AR = EC_STORE_PAGE_ADDR;
+        FLASH_AR = page_addr;
         FLASH_CR |= CR_STRT;
         flash_wait_ready();
         FLASH_CR &= ~CR_PER;
-        ok = flash_sr_ok() && ((*(const uint16_t *)EC_STORE_PAGE_ADDR) == 0xFFFFu);
+        ok = flash_sr_ok() && ((*(const uint16_t *)page_addr) == 0xFFFFu);
         flash_lock();
     } while (0);
     __enable_irq();
     return ok;
 }
 
-bool ec_store_write_halfwords(const uint16_t *data, uint32_t halfwords) {
+bool ec_flash_write_at(uint32_t addr, const uint16_t *data, uint32_t halfwords) {
     __disable_irq();
     bool ok = false;
     do {
         if (!flash_unlock()) break;
         FLASH_CR |= CR_PG;
-        volatile uint16_t *dst = (volatile uint16_t *)EC_STORE_PAGE_ADDR;
+        volatile uint16_t *dst = (volatile uint16_t *)addr;
         ok = true;
         for (uint32_t i = 0; i < halfwords; i++) {
             dst[i] = data[i];
@@ -80,4 +80,12 @@ bool ec_store_write_halfwords(const uint16_t *data, uint32_t halfwords) {
     } while (0);
     __enable_irq();
     return ok;
+}
+
+bool ec_store_erase(void) {
+    return ec_flash_erase_page(EC_STORE_PAGE_ADDR);
+}
+
+bool ec_store_write_halfwords(const uint16_t *data, uint32_t halfwords) {
+    return ec_flash_write_at(EC_STORE_PAGE_ADDR, data, halfwords);
 }

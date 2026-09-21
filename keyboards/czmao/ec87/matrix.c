@@ -1,4 +1,5 @@
-/* EC87 v4.2 — production capacitive sensing with debounce */
+/* EC87 v4.3 — production capacitive sensing with debounce +
+ * bottom-out calibration (per-key dynamic thresholds, flash persisted) */
 #include "matrix.h"
 #include "gpio.h"
 #include "wait.h"
@@ -7,6 +8,7 @@
 #include <stdint.h>
 #include "timer.h"
 #include <string.h>
+#include "ec_calib.h"
 
 #define ROW_COUNT 6
 #define COL_COUNT 16
@@ -34,8 +36,8 @@ static const pin_t mux_pins[4] = {B8, B9, B10, B11};
 #define SETTLE_US       5
 #define MUX_SETTLE_US   3
 #define CALIB_SAMPLES   16
-#define PRESS_DELTA     100
-#define RELEASE_DELTA   60
+/* Fixed deltas are legacy fallbacks only; per-key learned thresholds live
+ * in ec_calib.c. */
 #define DEBOUNCE_MS     5
 
 static uint16_t baseline[TOTAL_KEYS];
@@ -135,6 +137,11 @@ void matrix_init_custom(void) {
     memset(key_state, 0, sizeof(key_state));
     memset(last_change, 0, sizeof(last_change));
 
+    /* Bottom-out calibration: load learned pressed levels from flash and
+     * hand over the release baseline for dynamic thresholding. */
+    ec_calib_set_baseline(baseline);
+    ec_calib_init();
+
     // debug_enable = true;
     // debug_matrix = true;
     // debug disabled in production
@@ -142,18 +149,20 @@ void matrix_init_custom(void) {
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     bool changed = false;
+    static bool was_muted = false;
     uint32_t now = timer_read32();
 
     for (uint8_t col=0; col<COL_COUNT; col++) {
         for (uint8_t row=0; row<ROW_COUNT; row++) {
             uint16_t idx = row*COL_COUNT+col;
             uint16_t v = read_key(row, col);
+            ec_calib_sample(idx, v);
             int16_t delta = (int16_t)v - (int16_t)baseline[idx];
 
             uint8_t want = key_state[idx];
-            if (!key_state[idx] && delta >= PRESS_DELTA)
+            if (!key_state[idx] && delta >= (int16_t)ec_press_delta(idx))
                 want = 1;
-            else if (key_state[idx] && delta <= RELEASE_DELTA)
+            else if (key_state[idx] && delta <= (int16_t)ec_release_delta(idx))
                 want = 0;
 
             if (want != key_state[idx]) {
@@ -168,7 +177,23 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
         }
     }
 
+    /* Adaptive bottom-out learning is fed by ec_calib_sample() inside the
+     * per-key loop above; thresholds read live via ec_press/release_delta. */
+
+    ec_mute_poll();
+    bool muted = ec_mute_active();
+
     for (uint8_t r=0;r<ROW_COUNT;r++) current_matrix[r]=0;
+    if (muted) {
+        /* Calibration mute: sensing/learning keep running, but the host
+         * sees an empty matrix — zero key output, like a key-test tool.
+         * Force one update at entry (release everything) / exit (resync). */
+        if (!was_muted) changed = true;
+        was_muted = true;
+        return changed;
+    }
+    if (was_muted) { changed = true; was_muted = false; }
+
     for (int i=0;i<TOTAL_KEYS;i++) {
         if (key_state[i]) {
             uint8_t r = i / COL_COUNT;

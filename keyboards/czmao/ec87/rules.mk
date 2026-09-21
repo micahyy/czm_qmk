@@ -1,10 +1,11 @@
 LTO_ENABLE = yes
 
 CUSTOM_MATRIX = lite
-SRC += matrix.c ec_calib.c ec_flash.c
+SRC += matrix.c ec_calib.c ec_flash.c eeprom_ec87_flash.c
 
-# RAM-only EEPROM (no flash erase, safe with any matrix implementation)
-EEPROM_DRIVER = transient
+# Flash-backed EEPROM: RAM shadow committed to top flash pages, persistent.
+EEPROM_DRIVER = custom
+EEPROM_SIZE = 8192
 
 # Debug console output over USB HID
 CONSOLE_ENABLE = no

@@ -15,3 +15,10 @@
  */
 
 #include "quantum.h"
+
+/* Periodic commit of the flash-backed EEPROM shadow. */
+void ec87_eeprom_task(void);
+
+void housekeeping_task_kb(void) {
+    ec87_eeprom_task();
+}

@@ -28,6 +28,9 @@
 #include QMK_KEYBOARD_H
 #include "ec_calib.h"
 
+/* Force pending EEPROM writes out to flash before leaving the firmware. */
+bool ec87_eeprom_flush(void);
+
 /* VIA custom keycodes. Order must match "customKeycodes" in 1243021316.json:
  * 0 = Reset Defaults, 1 = Bootloader, 2 = NKRO Toggle. */
 enum via_custom_keycodes {
@@ -95,11 +98,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                  * then soft-reset so VIA reconnects and reloads the keymap. */
                 eeconfig_init_via();
                 clear_keyboard();
+                ec87_eeprom_flush();
                 soft_reset_keyboard();
                 return false;
             case CZM_BOOT:
                 /* Enter UF2 bootloader for firmware flashing. */
                 clear_keyboard();
+                ec87_eeprom_flush();
                 bootloader_jump();
                 return false;
             case CZM_NKRO:
@@ -169,10 +174,12 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
                 case id_czm_reset_kb:
                     eeconfig_init_via();
                     clear_keyboard();
+                    ec87_eeprom_flush();
                     soft_reset_keyboard();
                     break;
                 case id_czm_bootloader_kb:
                     clear_keyboard();
+                    ec87_eeprom_flush();
                     bootloader_jump();
                     break;
                 case id_czm_nkro_kb:

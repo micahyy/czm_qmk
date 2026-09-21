@@ -1,7 +1,7 @@
 LTO_ENABLE = yes
 
 CUSTOM_MATRIX = lite
-SRC += matrix.c
+SRC += matrix.c ec_calib.c ec_flash.c
 
 # RAM-only EEPROM (no flash erase, safe with any matrix implementation)
 EEPROM_DRIVER = transient

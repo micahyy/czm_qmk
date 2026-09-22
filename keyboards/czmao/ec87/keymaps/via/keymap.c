@@ -28,9 +28,6 @@
 #include QMK_KEYBOARD_H
 #include "ec_calib.h"
 
-/* Force pending EEPROM writes out to flash before leaving the firmware. */
-bool ec87_eeprom_flush(void);
-
 /* VIA custom keycodes. Order must match "customKeycodes" in 1243021316.json:
  * 0 = Reset Defaults, 1 = Bootloader, 2 = NKRO Toggle. */
 enum via_custom_keycodes {
@@ -58,14 +55,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_LCTL, KC_LGUI, KC_LALT, KC_SPC , KC_SPC , KC_SPC , KC_RALT, KC_RGUI, MO(1)  , KC_RCTL, KC_LEFT, KC_DOWN, KC_RGHT
     ),
 
-    /* [1] FN1 layer */
+    /* [1] FN1 layer: F-row media keys removed.
+     *   Fn+P open player, Fn+Space play/pause,
+     *   Fn+Up/Down volume, Fn+Left/Right prev/next track. */
     [1] = LAYOUT(
-        KC_GRV , KC_BRID, KC_BRIU, KC_MCTL, KC_LPAD, _______, _______, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_VOLD, KC_VOLU,  _______, _______, _______,
+        KC_GRV , _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  _______, _______, _______,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  _______, KC_DEL , _______,
+        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_MSEL, _______, _______,  _______, _______, _______,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  _______, _______, _______,
-        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  _______, _______, _______,
-        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  MO(2)  , _______, _______,
-        _______, _______, _______, _______, _______, _______, MO(2)  , _______, _______, _______, _______, _______, _______
+        _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,  MO(2)  , KC_VOLU, _______,
+        _______, _______, _______, KC_MPLY, KC_MPLY, KC_MPLY, MO(2)  , _______, _______, _______, KC_MPRV, KC_VOLD, KC_MNXT
     ),
 
     /* [2] FN2 layer: Esc=EE_CLR, letter row = RGB matrix controls */
@@ -98,13 +97,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                  * then soft-reset so VIA reconnects and reloads the keymap. */
                 eeconfig_init_via();
                 clear_keyboard();
-                ec87_eeprom_flush();
                 soft_reset_keyboard();
                 return false;
             case CZM_BOOT:
                 /* Enter UF2 bootloader for firmware flashing. */
                 clear_keyboard();
-                ec87_eeprom_flush();
                 bootloader_jump();
                 return false;
             case CZM_NKRO:
@@ -174,12 +171,10 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
                 case id_czm_reset_kb:
                     eeconfig_init_via();
                     clear_keyboard();
-                    ec87_eeprom_flush();
                     soft_reset_keyboard();
                     break;
                 case id_czm_bootloader_kb:
                     clear_keyboard();
-                    ec87_eeprom_flush();
                     bootloader_jump();
                     break;
                 case id_czm_nkro_kb:

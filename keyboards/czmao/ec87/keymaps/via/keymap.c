@@ -226,6 +226,7 @@ void matrix_scan_user(void) {
 
     if (phys_pressed(5, 0) && phys_pressed(5, 8) && phys_pressed(5, 6)) {
         boot_combo_active = true;
-        reset_keyboard();
+        clear_keyboard();
+        bootloader_jump();
     }
 }

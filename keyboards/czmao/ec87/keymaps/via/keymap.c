@@ -151,6 +151,13 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
     switch (*command_id) {
         case id_custom_get_value:
             switch (*value_id) {
+                case id_czm_reset_kb:
+                case id_czm_bootloader_kb:
+                    /* Action-only VIA custom-UI buttons are still read with a GET
+                     * on menu load; answer 0 instead of id_unhandled so VIA does
+                     * not reject the menu response. */
+                    *value_data = 0;
+                    break;
                 case id_czm_nkro_kb:
                     *value_data = keymap_config.nkro ? 1 : 0;
                     break;

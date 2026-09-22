@@ -38,9 +38,21 @@
 make czmao/ec87:via
 ```
 
+## 进入 Bootloader / 刷固件（快捷键）
+
+无需拆机或按 BOOT0，键盘底部一排同时按住以下三个键即可进入 bootloader（固件烧录模式）：
+
+**Fn ＋ 右 Alt（RAlt）＋ 左 Ctrl**
+
+- 按住 **Fn** 和 **右 Alt** 会切换到 FN2 层，该层的 **左 Ctrl** 位置就是 `QK_BOOT`，三键同按即进入 bootloader。
+- 三键同按住约 1 秒，键盘会进入 UF2/STM32duino bootloader，此时电脑会出现一个 U 盘或烧录端口，即可拖入固件或执行烧录。
+- 在 VIA 中切到第 3 层（FN2 层），左下角的格子会直接显示 `QK_BOOT` 键值，可自行查看或修改。
+- 注意：这不是普通重启，而是进入烧录模式；正常使用不会误触。
+
 ## Flashing
 
-Enter STM32duino bootloader mode (hold BOOT0 + press RESET), then:
+Enter STM32duino bootloader mode with the shortcut **Left Ctrl + Fn + Right Alt** above
+(or hold BOOT0 + press RESET), then:
 
 ```bash
 make czmao/ec87:via:flash

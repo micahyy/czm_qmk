@@ -22,7 +22,8 @@
  * Shortcuts:
  *   FN1+Backspace  (right half) = Delete
  *   FN2+Esc        = clear all EEPROM (EE_CLR)
- *   LCtrl + FN1 + RALT(=FN2)   = bootloader (matrix_scan_user combo below)
+ *   Fn + RAlt + LCtrl          = bootloader (RAlt is MO(2) on FN layer;
+ *                                 LCtrl on layer[2] is QK_BOOT)
  */
 
 #include QMK_KEYBOARD_H
@@ -67,14 +68,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______, _______, _______, KC_MPLY, KC_MPLY, KC_MPLY, MO(2)  , _______, _______, _______, KC_MPRV, KC_VOLD, KC_MNXT
     ),
 
-    /* [2] FN2 layer: Esc=EE_CLR, letter row = RGB matrix controls */
+    /* [2] FN2 layer: Esc=EE_CLR, letter row = RGB matrix controls.
+     * Hold Fn + RAlt to enter this layer; LCtrl position = QK_BOOT, so
+     * Fn + RAlt + LCtrl together enter the bootloader. */
     [2] = LAYOUT(
         EE_CLR ,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,  _______,_______,_______,
         _______,_______,RM_TOGG,RM_VALD,RM_VALU,RM_HUED,RM_HUEU,RM_SATD,RM_SATU,RM_SPDD,RM_SPDU,RM_NEXT,RM_PREV,  _______,_______,_______,
-        _______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______
+        QK_BOOT,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______,_______
     ),
 
     /* [3] VIA spare */
@@ -209,24 +212,5 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length) {
         default:
             *command_id = id_unhandled;
             break;
-    }
-}
-
-/* Bootloader combo (fixed rule, applies to default + via):
- *   LCtrl(5,0) + Fn/MO1(5,8) + RAlt(5,6) -> reset into bootloader. */
-static bool boot_combo_active = false;
-
-static inline bool phys_pressed(uint8_t row, uint8_t col) {
-    matrix_row_t r = matrix_get_row(row);
-    return (r & ((matrix_row_t)1 << col)) != 0;
-}
-
-void matrix_scan_user(void) {
-    if (boot_combo_active) { return; }
-
-    if (phys_pressed(5, 0) && phys_pressed(5, 8) && phys_pressed(5, 6)) {
-        boot_combo_active = true;
-        clear_keyboard();
-        bootloader_jump();
     }
 }

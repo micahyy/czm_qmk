@@ -24,5 +24,5 @@
 // preprocessor generates them and duplicate definitions would clash.
 
 // keypos_t is {col, row}. Row 5 columns 4/5 are the rotary-only positions.
-#    define ENCODERS_MATRIX_MAP { {4, 5}, {5, 5} }
+#    define ENCODERS_MATRIX_MAP {{{4, 5}, {5, 5}}}
 #endif

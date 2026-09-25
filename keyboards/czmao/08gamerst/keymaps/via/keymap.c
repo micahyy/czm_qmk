@@ -52,9 +52,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         //1      2        3        4        5        6        7        8        9        10       11       12       13       14       15       16       17       18       19       20       21
         EE_CLR,     _______,    _______,    _______,    _______,    QK_BOOT,
         _______,    _______,    _______,    _______,    _______,    _______,    _______,    
-        NK_TOGG,    RGB_VAI,    RGB_HUI,    RGB_SAI,    _______,    _______,    
-        _______,    _______,    RGB_HUI,    RGB_SAI,    RGB_VAI,    RGB_SPI,
-        RGB_TOG,    RGB_MOD,    RGB_HUD,    RGB_SAD,    RGB_VAD,    RGB_SPD,
+        NK_TOGG,    RM_VALU,    RM_HUEU,    RM_SATU,    _______,    _______,    
+        _______,    _______,    RM_HUEU,    RM_SATU,    RM_VALU,    RM_SPDU,
+        RM_TOGG,    RM_NEXT,    RM_HUED,    RM_SATD,    RM_VALD,    RM_SPDD,
         _______,    _______,    _______,    _______,    _______,    _______)
     
 };

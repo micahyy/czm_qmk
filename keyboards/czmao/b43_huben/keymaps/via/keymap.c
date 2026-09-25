@@ -37,14 +37,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_VOLD,            KC_VOLU
 ),
     [1] = LAYOUT_tkl_f13_ansi(
-        _______,            RGB_TOG,
+        _______,            RM_TOGG,
         _______,   
-        RGB_SPD,            RGB_SPI,
+        RM_SPDD,            RM_SPDU,
 
-        RGB_HUD,            RGB_HUI
+        RM_HUED,            RM_HUEU
 ),
     [2] = LAYOUT_tkl_f13_ansi(
-        RGB_MOD,            _______,
+        RM_NEXT,            _______,
         _______,   
         _______,            _______,
 

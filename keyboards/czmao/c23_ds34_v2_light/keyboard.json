@@ -1,0 +1,177 @@
+{
+    "keyboard_name": "mao_34_ds34_v2.0",
+    "manufacturer": "CZMAO",
+    "url": "NONE",
+    "maintainer": "MAOKB",
+    "diode_direction": "COL2ROW",
+    "processor": "STM32F103",
+    "bootloader": "stm32duino",
+    "usb": {
+      "vid": "0x4C23",
+      "pid": "0x4C23",
+      "device_version": "1.0.0"
+    },
+    "features": {
+        "bootmagic": true,
+        "command": true,
+        "console": true,
+        "extrakey": true,
+        "nkro": true,
+        "mousekey": true,
+        "rgb_matrix": true
+    },
+    "encoder": {
+      "rotary": [
+        {"pin_a": "B8", "pin_b": "B9", "resolution": 4}
+      ]
+    },
+    "matrix_pins": {
+      "cols": ["B7",  "B6",   "B5",   "B4",   "A9",   "A8",   "B15",    "B14"],
+      "rows": ["B11", "B10",  "B12",  "B1",   "C15",  "A0"]
+    },
+    "ws2812": {
+      "pin": "B13"
+    },
+    "rgb_matrix": {
+      "default": {
+        "animation": "cycle_left_right"
+      },
+      "animations": {
+          "gradient_left_right": true,
+          "breathing": true,
+          "band_sat": true,
+          "band_val": true,
+          "band_pinwheel_sat": true,
+          "band_pinwheel_val": true,
+          "band_spiral_sat": true,
+          "band_spiral_val": true,
+          "cycle_all": true,
+          "cycle_left_right": true,
+          "cycle_up_down": true,
+          "rainbow_moving_chevron": true,
+          "cycle_out_in": true,
+          "cycle_out_in_dual": true,
+          "cycle_pinwheel": true,
+          "cycle_spiral": true,
+          "dual_beacon": true,
+          "rainbow_beacon": true,
+          "rainbow_pinwheels": true,
+          "raindrops": true,
+          "jellybean_raindrops": true,
+          "hue_breathing": true,
+          "hue_pendulum": true,
+          "hue_wave": true,
+          "typing_heatmap": true,
+          "solid_reactive_simple": true,
+          "solid_reactive": true,
+          "solid_reactive_wide": true,
+          "solid_reactive_multiwide": true,
+          "solid_reactive_cross": true,
+          "solid_reactive_multicross": true,
+          "solid_reactive_nexus": true,
+          "solid_reactive_multinexus": true,
+          "splash": true,
+          "multisplash": true,
+          "solid_splash": true,
+          "solid_multisplash": true
+      },
+      "driver": "ws2812",
+      "max_brightness":180,
+      "layout": [
+      { "flags": 2,   "matrix": [0, 0], "x": 32,    "y": 0 },
+      { "flags": 2,   "matrix": [0, 1], "x": 64,    "y": 0 },
+      { "flags": 2,   "matrix": [0, 2], "x": 96,   "y": 0 },
+      { "flags": 2,   "matrix": [0, 4], "x": 128,   "y": 0 },
+      { "flags": 2,   "matrix": [0, 5], "x": 160,   "y": 0 },
+      { "flags": 2,   "matrix": [0, 6], "x": 192,   "y": 0 },
+
+      { "flags": 2,   "matrix": [1, 0], "x": 32,    "y": 13 },
+      { "flags": 2,   "matrix": [1, 1], "x": 64,    "y": 13 },
+      { "flags": 2,   "matrix": [1, 2], "x": 96,   "y": 13 },
+      { "flags": 2,   "matrix": [1, 4], "x": 128,   "y": 13 },
+      { "flags": 2,   "matrix": [1, 5], "x": 160,   "y": 13 },
+      { "flags": 2,   "matrix": [1, 6], "x": 192,   "y": 13 },
+      { "flags": 2,   "matrix": [1, 7], "x": 224,   "y": 13 },
+
+      { "flags": 2,   "matrix": [2, 0], "x": 32,    "y": 26 },
+      { "flags": 2,   "matrix": [2, 1], "x": 64,    "y": 26 },
+      { "flags": 2,   "matrix": [2, 3], "x": 96,   "y": 26 },
+      { "flags": 2,   "matrix": [2, 4], "x": 128,   "y": 26 },
+      { "flags": 2,   "matrix": [2, 5], "x": 160,   "y": 26 },
+      { "flags": 2,   "matrix": [2, 6], "x": 192,   "y": 26 },
+      { "flags": 2,   "matrix": [3, 7], "x": 224,   "y": 38 },
+
+      { "flags": 2,   "matrix": [3, 4], "x": 128,     "y": 39 },
+      { "flags": 2,   "matrix": [3, 5], "x": 160,    "y": 39 },
+      { "flags": 2,   "matrix": [0, 3], "x": 192,   "y": 39 },
+
+
+      { "flags": 2,   "matrix": [5, 3], "x": 64,     "y": 52 },
+      { "flags": 2,   "matrix": [4, 4], "x": 128,    "y": 52 },
+      { "flags": 2,   "matrix": [4, 5], "x": 160,   "y": 52 },
+      { "flags": 2,   "matrix": [4, 6], "x": 192,   "y": 52 },
+      { "flags": 2,   "matrix": [4, 7], "x": 224,   "y": 58 },
+
+      { "flags": 2,   "matrix": [5, 0], "x": 32,    "y": 64 },
+      { "flags": 2,   "matrix": [5, 1], "x": 64,    "y": 64 },
+      { "flags": 2,   "matrix": [5, 2], "x": 96,   "y": 64 },
+      { "flags": 2,   "matrix": [5, 4], "x": 144,    "y": 64 },
+      { "flags": 2,   "matrix": [5, 5], "x": 192,   "y": 64 }
+
+      ],
+      "sleep": true
+  },
+
+    "layouts": {
+      "LAYOUT": {
+        "layout": [
+
+          {"label":"PS",          "matrix": [ 0,  0],   "x":0,      "y":0 },
+          {"label":"SL",          "matrix": [ 0,  1],   "x":1,      "y":0 },
+          {"label":"PAUS",        "matrix": [ 0,  2],   "x":2,      "y":0 },
+          {"label":"FN",          "matrix": [ 0,  4],   "x":3.25,   "y":0 },
+          {"label":"MUTE",        "matrix": [ 0,  5],   "x":4.25,   "y":0 },
+          {"label":"VOLD",        "matrix": [ 0,  6],   "x":5.25,   "y":0 },
+          {"label":"MUTE",        "matrix": [ 0,  7],   "x":6.25,   "y":0 },
+          {"label":"VOLD",        "matrix": [ 3,  0],   "x":6.25,   "y":0 },
+          {"label":"VOLU",        "matrix": [ 3,  1],   "x":6.25,   "y":0 },
+          
+
+          {"label":"INS",         "matrix": [ 1,  0],   "x":0,      "y":1.25},
+          {"label":"HOME",        "matrix": [ 1,  1],   "x":1,      "y":1.25},
+          {"label":"PGUP",        "matrix": [ 1,  2],   "x":2,      "y":1.25},
+          {"label":"NLCK",        "matrix": [ 1,  4],   "x":3.25,   "y":1.25},
+          {"label":"P/",          "matrix": [ 1,  5],   "x":4.25,   "y":1.25},
+          {"label":"P*",          "matrix": [ 1,  6],   "x":5.25,   "y":1.25},
+          {"label":"P-",          "matrix": [ 1,  7],   "x":6.25,   "y":1.25},
+
+          {"label":"DEL",         "matrix": [ 2,  0],   "x":0,      "y":2.25            },
+          {"label":"END",         "matrix": [ 2,  1],   "x":1,      "y":2.25         },         
+          {"label":"PGDN",        "matrix": [ 1,  3],   "x":2,      "y":2.25         },
+          {"label":"P7",          "matrix": [ 2,  4],   "x":3.25,   "y":2.25           },
+          {"label":"P8",          "matrix": [ 2,  5],   "x":4.25,   "y":2.25           },
+          {"label":"P9",          "matrix": [ 2,  6],   "x":5.25,   "y":2.25           },
+          {"label":"P+",          "matrix": [ 2,  7],   "x":6.25,   "y":2.25,   "h":2  },
+        
+          {"label":"P4",          "matrix": [ 3,  4],   "x":3.25,   "y":3.25          },
+          {"label":"P5",          "matrix": [ 3,  5],   "x":4.25,   "y":3.25            },
+          {"label":"P6",          "matrix": [ 0,  3],   "x":5.25,   "y":3.25            },
+
+          {"label":"UP",          "matrix": [ 5,  3],   "x":1,      "y":4.25            },
+          {"label":"P1",          "matrix": [ 4,  4],   "x":3.25,   "y":4.25            },
+          {"label":"P2",          "matrix": [ 4,  5],   "x":4.25,   "y":4.25            },
+          {"label":"P3",          "matrix": [ 4,  6],   "x":5.25,   "y":4.25            },
+          {"label":"Pent",        "matrix": [ 4,  7],   "x":6.25,   "y":4.25,       "h":2   },
+
+          {"label":"LEFT",        "matrix": [ 5,  0],   "x":0,      "y":5.25            },
+          {"label":"DOWN",        "matrix": [ 5,  1],   "x":1,      "y":5.25            },
+          {"label":"RGHT",        "matrix": [ 5,  2],   "x":2,      "y":5.25            },
+          {"label":"P0",          "matrix": [ 5,  4],   "x":3.25,   "y":5.25,   "w":2   },
+          {"label":"PDEL",        "matrix": [ 5,  5],   "x":5.25,   "y":5.25            }
+
+
+        ]
+      }
+    }
+
+  }

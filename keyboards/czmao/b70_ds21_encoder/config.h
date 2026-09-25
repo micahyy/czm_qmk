@@ -27,10 +27,9 @@
 // keypos_t is {col, row}. Columns 0-3 of rows 6 and 7 are rotary-only positions
 // (no physical switch), one per direction of the four knobs, so they stay
 // configurable per layer / through VIA.
+// The initialiser needs three levels of braces: the array of encoders, the two
+// directions of each encoder, and the keypos pair itself. Get this wrong and GCC
+// fails the build with -Werror=missing-braces.
 // Format: {clockwise position, counter-clockwise position} for each encoder.
-#    define ENCODERS_MATRIX_MAP \
-        { {0, 6}, {1, 6} },     \
-        { {2, 6}, {3, 6} },     \
-        { {0, 7}, {1, 7} },     \
-        { {2, 7}, {3, 7} }
+#    define ENCODERS_MATRIX_MAP {{{0, 6}, {1, 6}}, {{2, 6}, {3, 6}}, {{0, 7}, {1, 7}}, {{2, 7}, {3, 7}}}
 #endif

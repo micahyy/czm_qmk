@@ -25,5 +25,5 @@
 #    define ENCODER_DIRECTION_FLIP
 
 // keypos_t is {col, row}. Row 3 columns 0/1 are rotary-only positions.
-#    define ENCODERS_MATRIX_MAP { {0, 3}, {1, 3} }
+#    define ENCODERS_MATRIX_MAP {{{0, 3}, {1, 3}}}
 #endif

@@ -1,0 +1,42 @@
+name: Build Firmware
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'keyboards/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout QMK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-arm-none-eabi binutils-arm-none-eabi \
+            gcc-avr binutils-avr avr-libc dfu-util dfu-programmer python3-pip >/dev/null
+          pip3 install -q qmk
+
+      - name: Build DS60 via (bin)
+        run: make czmao/ds60:via COLOR=false
+
+      - name: Collect outputs
+        run: |
+          cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
+          ls -la *.bin
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: czmao_firmware
+          path: |
+            *.bin
+          if-no-files-found: error

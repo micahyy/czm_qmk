@@ -1,0 +1,75 @@
+name: Build CZMAO F103 rotary boards
+
+# Builds the five QMK 1.1.8 era CZMAO boards that were merged from
+# xvus/micahyy-qmk1.1.8 (they hang off the STM32F103 with rotary encoders).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'keyboards/czmao/08gamerst/**'
+      - 'keyboards/czmao/b23_ds34_v2/**'
+      - 'keyboards/czmao/b43_huben/**'
+      - 'keyboards/czmao/b70_ds21_encoder/**'
+      - 'keyboards/czmao/c23_ds34_v2_light/**'
+      - '.github/workflows/build_czmao_f103.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'keyboards/czmao/08gamerst/**'
+      - 'keyboards/czmao/b23_ds34_v2/**'
+      - 'keyboards/czmao/b43_huben/**'
+      - 'keyboards/czmao/b70_ds21_encoder/**'
+      - 'keyboards/czmao/c23_ds34_v2_light/**'
+      - '.github/workflows/build_czmao_f103.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # keep going so one broken board does not hide the others
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kb: czmao/08gamerst
+            name: czmao_08gamerst
+          - kb: czmao/b23_ds34_v2
+            name: czmao_b23_ds34_v2
+          - kb: czmao/b43_huben
+            name: czmao_b43_huben
+          - kb: czmao/b70_ds21_encoder
+            name: czmao_b70_ds21_encoder
+          - kb: czmao/c23_ds34_v2_light
+            name: czmao_c23_ds34_v2_light
+
+    steps:
+      - name: Checkout QMK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-arm-none-eabi binutils-arm-none-eabi \
+            dfu-util python3-pip >/dev/null
+          pip3 install -q qmk
+
+      - name: Build ${{ matrix.name }} via
+        run: qmk compile -kb ${{ matrix.kb }} -km via -e COLOR=false
+
+      - name: Collect outputs
+        run: |
+          mkdir -p out
+          find .build -maxdepth 1 \( -name '*.bin' -o -name '*.hex' -o -name '*.uf2' \) \
+            -exec cp -v {} out/ \;
+          ls -la out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.name }}
+          path: out/
+          if-no-files-found: error

@@ -1,7 +1,7 @@
 {
-    "name": "CZMAO GamerLite",
+    "name": "CZMAO GamerLite V1.1",
     "vendorId": "0x4A17",
-    "productId": "0x0003",
+    "productId": "0x0005",
     "matrix": { "rows": 6, "cols": 7 },
     "layouts": {
         "keymap": [
@@ -13,6 +13,7 @@
             ["5,0", "5,1", "5,2", "5,3"]
         ]
     },
+    "keycodes": ["qmk_lighting"],
     "menus": [
         {
             "label": "Lighting",
@@ -27,7 +28,21 @@
                     ]
                 }
             ]
+        },
+        {
+            "label": "Keyboard",
+            "content": [
+                {
+                    "label": "Settings",
+                    "content": [
+                        { "label": "Reset keymap to defaults", "type": "button", "content": ["id_czm_reset_kb", 0, 1] },
+                        { "label": "Enter bootloader (flashing mode)", "type": "button", "content": ["id_czm_bootloader_kb", 0, 2] },
+                        { "label": "NKRO (full n-key rollover)", "type": "toggle", "content": ["id_czm_nkro_kb", 0, 3] },
+                        { "label": "Mouse keys", "type": "toggle", "content": ["id_czm_mouse_kb", 0, 4] },
+                        { "label": "Media / system keys", "type": "toggle", "content": ["id_czm_extrakey_kb", 0, 5] }
+                    ]
+                }
+            ]
         }
-    ],
-    "keycodes": ["qmk_lighting"]
+    ]
 }

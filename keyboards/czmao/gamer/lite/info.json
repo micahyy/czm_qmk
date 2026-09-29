@@ -5,14 +5,14 @@
     "maintainer": "MAOKB",
     "diode_direction": "COL2ROW",
     "usb": {
-        "vid": "0x1A2C",
-        "pid": "0x50EF",
-        "device_version": "1.0.0"
+        "vid": "0x4A17",
+        "pid": "0x0005",
+        "device_version": "1.1.0"
     },
     "features": {
         "bootmagic": true,
-        "command": true,
-        "console": true,
+        "command": false,
+        "console": false,
         "extrakey": true,
         "mousekey": true,
         "nkro": true,

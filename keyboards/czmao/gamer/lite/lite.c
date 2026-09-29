@@ -36,6 +36,8 @@ static void czm_flags_load(void) {
     }
 }
 
+#ifdef VIA_ENABLE
+
 static void czm_flags_set(uint32_t flag, bool on) {
     if (on) {
         czm_flags |= flag;
@@ -44,8 +46,6 @@ static void czm_flags_set(uint32_t flag, bool on) {
     }
     eeconfig_update_user(czm_flags);
 }
-
-#ifdef VIA_ENABLE
 
 /* VIA "Keyboard" tab controls.
  * Custom channel is id_custom_channel (0); value ids must match the

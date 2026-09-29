@@ -13,7 +13,7 @@ Pre-built VIA firmware for CZMAO GamerLite.
 
 | File | Size |
 |------|------|
-| czmao_gamerlite_via.bin | 41644 bytes |
+| [../uf2/czmao_gamer_lite_at32f403a_uf2.uf2](../uf2/czmao_gamer_lite_at32f403a_uf2.uf2) | 69632 bytes (v1.1.0, drag-and-drop UF2) |
 
 ### Specifications
 

@@ -23,7 +23,7 @@ CZMAO A24 60% 多配列机械键盘，采用 STM32F103 主控。
 ## Building
 
 ```bash
-make czmao/a24_60:default
+make czmao/60/a24_60:default
 ```
 
 ## Flashing
@@ -31,13 +31,13 @@ make czmao/a24_60:default
 Enter STM32duino bootloader mode (hold BOOT0 + press RESET), then:
 
 ```bash
-make czmao/a24_60:default:flash
+make czmao/60/a24_60:default:flash
 ```
 
 ## VIA
 
 ```bash
-make czmao/a24_60:via
+make czmao/60/a24_60:via
 ```
 
 After flashing VIA firmware, open [usevia.app](https://usevia.app) to configure keys.

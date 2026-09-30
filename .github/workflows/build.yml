@@ -26,12 +26,13 @@ jobs:
           pip3 install -q qmk
 
       - name: Build DS60 via (bin)
-        run: make czmao/ds60:via COLOR=false
+        run: make czmao/60/ds60:via COLOR=false
 
       - name: Collect outputs
         run: |
-          cp -v .build/czmao_ds60_via.bin ./czmao_ds60_via.bin
-          ls -la *.bin
+          cp -v .build/czmao_ec87_via.uf2 ./czmao_ec87_via.uf2
+          cp -v .build/czmao_60_ds60_via.bin ./czmao_ds60_via.bin
+          ls -la *.uf2 *.bin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -8,6 +8,6 @@
 
 ## Build
 
-    make czmao/ds60:default
-    make czmao/ds60:via
-    make czmao/ds60:via:uf2
+    make czmao/60/ds60:default
+    make czmao/60/ds60:via
+    make czmao/60/ds60:via:uf2

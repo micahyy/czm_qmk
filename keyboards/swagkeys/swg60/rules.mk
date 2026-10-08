@@ -1,0 +1,1 @@
+﻿# Swagkeys SK60 (STM32F103)

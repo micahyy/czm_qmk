@@ -31,21 +31,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 };
 
-bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
-    if (host_keyboard_led_state().num_lock) {
-        RGB_MATRIX_INDICATOR_SET_COLOR(0, 255, 255, 255);
-    }
-    for (uint8_t i = led_min; i < led_max; i++) {
-        switch (get_highest_layer(layer_state | default_layer_state)) {
-            case 7: rgb_matrix_set_color(i, RGB_PURPLE); break;
-            case 6: rgb_matrix_set_color(i, RGB_WHITE);  break;
-            case 5: rgb_matrix_set_color(i, RGB_YELLOW); break;
-            case 4: rgb_matrix_set_color(i, RGB_PINK);   break;
-            case 3: rgb_matrix_set_color(i, RGB_BLUE);   break;
-            case 2: rgb_matrix_set_color(i, RGB_GREEN);  break;
-            case 1: rgb_matrix_set_color(i, RGB_RED);    break;
-            default: break;
+// 用 basic 指示器钩子：QMK 在整帧渲染结束后只调用一次（见 quantum/rgb_matrix/rgb_matrix.c
+// rgb_task_state == FLUSHING 分支），此处的写入即为本帧最终值，不会与动画逐分片互相覆盖导致爆闪。
+bool rgb_matrix_indicators_user(void) {
+    uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+
+    // 非默认层：整板铺层色（保持原有观感）
+    if (layer) {
+        for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
+            switch (layer) {
+                case 7: rgb_matrix_set_color(i, RGB_PURPLE); break;
+                case 6: rgb_matrix_set_color(i, RGB_WHITE);  break;
+                case 5: rgb_matrix_set_color(i, RGB_YELLOW); break;
+                case 4: rgb_matrix_set_color(i, RGB_PINK);   break;
+                case 3: rgb_matrix_set_color(i, RGB_BLUE);   break;
+                case 2: rgb_matrix_set_color(i, RGB_GREEN);  break;
+                case 1: rgb_matrix_set_color(i, RGB_RED);    break;
+                default: break;
+            }
         }
     }
-    return false;
+
+    // numlock 指示：必须最后写，保证任何层都生效（不再被层色覆盖）
+    if (host_keyboard_led_state().num_lock) {
+        rgb_matrix_set_color(0, 255, 255, 255);
+    }
+    return true;
 }

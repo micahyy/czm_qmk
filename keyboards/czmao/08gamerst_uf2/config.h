@@ -18,10 +18,10 @@
 
 #define DYNAMIC_KEYMAP_LAYER_COUNT 8
 
-// Phone game-throne adapters (猎影 / 暗影王座) and phone OTG hosts key off the
-// USB product string; keep this exact name, do not "fix" it to the keyboard
-// name. Same recipe as czmao/gamer/lite.
-#define PRODUCT "HID Keyboard Device"
+// Our own product string. Kept explicit instead of falling back to
+// QMK_KEYBOARD_NAME so the host shows a readable model name rather than the
+// internal keyboard id.
+#define PRODUCT "CZMAO Gamer ST"
 
 // Give slow hub/throne firmware time to re-attach after a suspend cycle.
 #define USB_SUSPEND_WAKEUP_DELAY 500

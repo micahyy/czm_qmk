@@ -20,11 +20,13 @@ UF2 拖入即刷。三种进入方式：
 |---|---|---|
 | VID | `0x4E08` | `0x4E08` |
 | PID | `0x4E0A` | `0x4E0B` |
-| 产品名字符串 | `HID Keyboard Device` | 由 CherryUF2 决定 |
+| 产品名字符串 | `CZMAO Gamer ST` | 由 CherryUF2 决定 |
 
-USB 产品名故意不叫键盘名：手机游戏王座（猎影 / 暗影）和部分 OTG
-主机按产品名匹配标准键盘，`config.h` 里的 `#define PRODUCT` 请勿改回。
-VIA 读到的键盘名仍然是 `mao_gamerst_uf2`，不受影响。
+产品名走自有牌子（`config.h` 的 `#define PRODUCT`）。GamerLite 为了过
+王座那关伪装成了 `HID Keyboard Device`，但王座到底按不按产品名匹配
+没有公开资料也没实测确认。如果实机插上王座不识别，第一步就把这行
+改回 `HID Keyboard Device` 再试；再不行才考虑换成 Lite 那组已经验证过
+能过王座的 VID/PID `0x4A17:0x0005`（会同时影响驱动页匹配，慎用）。
 
 ## 王座 / 手机外接兼容
 

@@ -42,6 +42,19 @@ App 起始 `0x08004000`，UF2 family id `0x5ee21072`。
   覆盖该 hook 的板子用，两者对本板是同一件事
 - 升级完 bootloader 之后，App 侧固件不需要任何配合改动，1.0.5/1.0.6 都能被推送
 
+## 驱动菜单归属
+
+定义文件：`CathouseAPP/public/definitions/v3/1309167114.json`（vid 0x4E08 × 65536 + pid 0x4E0A）。
+驱动按 `CathouseAPP/driver_plan.md` 的规则分流 definition 的顶层 `menus`：`Title === 'Lighting'`
+的进一级“灯光控制”，其余全部进一级“功能配置”并各自成为一个二级标签。所以本板那个
+菜单的 label 直接写成 **“系统功能”**，不再嵌套 `Settings`（旧版 `Keyboard` > `Settings` 会把
+英文原样显示、也多一层，不符合规划表的“功能配置 > 系统功能”）。当前四项对应 VIA 临时命令
+的第 2 字节：恢复默认键位 `1`、进入烧录模式 `2`、全键无冲 `3`、媒体键 `5`。只放固件真正实现
+的开关：规划表里的 Mac 模式 / HHKB（Caps-Ctrl 互换）/ 鼠标功能本板没对应实现，所以不列
+（鼠标 collection 已从描述符里移除，放了也是个空开关）。“功能配置 > 升级”是驱动自己注入的，
+不在 definition 里。改完 definition 只需重新 `vite build` + 推 `definitions/`，浏览器 localStorage
+缓存的旧定义会在下次连机时自动刷新。
+
 ## USB 识别
 
 | | App | Bootloader |

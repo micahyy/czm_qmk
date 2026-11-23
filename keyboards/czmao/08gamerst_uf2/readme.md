@@ -11,23 +11,36 @@ UF2 拖入即刷。三种进入方式：
 - **板载 RESET**：双击 PCB 上的 RESET 键
 - **QK_BOOT**：VIA 里分配 QK_BOOT 键（写 CherryUF2 的双击魔数 `0xf01669ef` 后复位）
 
-首次刷入 bootloader：用 ST-Link 把 `uf2boot_czm_apm32f103.hex` 烧到
-`0x08000000`，App 起始 `0x08004000`，UF2 family id `0x5ee21072`。
+首次刷入 bootloader：用 ST-Link 把 bootloader hex 烧到 `0x08000000`，
+App 起始 `0x08004000`，UF2 family id `0x5ee21072`。
 
-## 驱动页升级（没有一键升级）
+## 两版 bootloader
 
-CherryUF2 只有一个 USB 大容量存储盘，**没有任何可写的 HID 接口**
-（扫过 `uf2boot_czm_apm32f103.hex`：无 vendor usage page `0xFF60`）。
-浏览器写不了 U 盘，所以本板不可能做 DC87 那种一键刷写。
+| | 旧版（已出厂的板子） | 新版（一键升级） |
+|---|---|---|
+| 文件 | `czm_qmk/bootloaders/uf2boot_czm_apm32f103.hex` | `czm_qmk/bootloaders/cherryuf2_stm32f103cbt6_hidiap.hex`（源 `Cherryuf2/ports/ST/stm32f1xx/_bin/stm32f103cbt6/`，14464 B / 16K 预算） |
+| USB 接口 | 只有 MSC U 盘 | MSC U 盘 + vendor HID（usage page `0xFF60` / usage `0x64`） |
+| U 盘卷标 | `CherryUF2` | `CZM` |
+| VID:PID | `0x4E08:0x4E0B` | 同 |
+| 刷 App | 只能拖 uf2 | 拖 uf2，或驱动页一键推送 |
 
-- `configs.json` 里**不要**给 `0x4E08:0x4E0A` 写 `firmwareTransport: "hid"`，
-  写了驱动页就会去等一个不存在的 HID 设备，表现是“看得到新版本但 update 不动”
-- 驱动页走下载 + 进 bootloader + 拖文件那条流程
-- “进 bootloader”按钮发的是 VIA 命令 `0x0B`。本仓库的 `quantum/via.c`
-  原本没有这个 case（回 `id_unhandled`，按钮点了没反应），已补上
-  `reset_keyboard()`。**1.0.5 及以后才响**；更早的固件请用板载 RESET 双击
-  或 Bootmagic
-- 真要一键升级只能重做 bootloader，已出厂的板子救不回来
+重编新版：`powershell -ExecutionPolicy Bypass -File "E:\SynologyDrive\via private docs\Cherryuf2\build_boot.ps1"`
+（源码 `ports/ST/stm32f1xx/boards/stm32f103cbt6/gamerst_hid_iap.c`，报文格式与 DC87 一致，
+前端 `dc87-hid-iap.ts` 不用改）。改完 `board.h` 里的宏后 make 会漏重编 `src/bootuf2.c`，
+先 touch 一下再编，编完在 bin 里搜新串确认。
+
+## 驱动页升级
+
+- 只有新版 bootloader 有 HID 通道。`configs.json` 里的 `firmwareTransport: "hid"`
+  + `bootProductId: "0x4E0B"` + `uf2Family/uf2AppStart/uf2AppEnd` 依赖它；给还带
+  旧 bootloader 的板子配 hid，表现就是“看得到新版本但 update 不动”
+- 网页推的是与拖拽完全相同的 uf2：bootloader 端会校验 magic、family、
+  payload 长度和地址范围，越界一律拒绝，绝不覆盖 boot 区
+- 进 bootloader 的 VIA 命令 `0x0B` 由本 keymap 的
+  `keymaps/uf2/cherryuf2_bootloader.c` 通过 `via_command_kb()` 拦下（往 `0x20004FFC`
+  写魔数 `0xf01669ef` 后复位）。`quantum/via.c` 另外补了一个通用 case，给没有
+  覆盖该 hook 的板子用，两者对本板是同一件事
+- 升级完 bootloader 之后，App 侧固件不需要任何配合改动，1.0.5/1.0.6 都能被推送
 
 ## USB 识别
 

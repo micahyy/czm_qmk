@@ -18,6 +18,19 @@
 
 #define DYNAMIC_KEYMAP_LAYER_COUNT 8
 
+// Phone game-throne adapters (猎影 / 暗影王座) and phone OTG hosts key off the
+// USB product string; keep this exact name, do not "fix" it to the keyboard
+// name. Same recipe as czmao/gamer/lite.
+#define PRODUCT "HID Keyboard Device"
+
+// Give slow hub/throne firmware time to re-attach after a suspend cycle.
+#define USB_SUSPEND_WAKEUP_DELAY 500
+
+// Factory brightness. Throne USB-A ports share little current with the mouse,
+// and 35 WS2812 at full white brown out the port. max_brightness in
+// keyboard.json still caps the ceiling users can push it back to.
+#define RGB_MATRIX_DEFAULT_VAL 100
+
 // WS2812 data pin B13 on STM32F103 maps to TIM1_CH1N (complementary output,
 // full-remap). Use the QMK pwm driver with PWMD1 / CH1 / complementary and
 // DMA1 Stream5 (TIM1_UP on F103). Kept in sync with the working reference in

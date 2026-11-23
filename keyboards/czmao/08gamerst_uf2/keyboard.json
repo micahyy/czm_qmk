@@ -9,15 +9,14 @@
     "usb": {
       "vid": "0x4E08",
       "pid": "0x4E0A",
-      "device_version": "1.0.0",
-      "force_nkro": true
+      "device_version": "1.0.0"
     },
     "features": {
         "bootmagic": true,
-        "command": true,
-        "console": true,
+        "command": false,
+        "console": false,
         "extrakey": true,
-        "mousekey": true,
+        "mousekey": false,
         "nkro": true,
         "rgb_matrix": true
     },

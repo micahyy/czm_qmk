@@ -18,6 +18,9 @@
 ENCODER_ENABLE = yes
 SRC                += encoder.c
 
+# Host-compat (throne / phone OTG) switches: NKRO + media key gating over VIA.
+SRC                += gamerst.c
+
 # WS2812 on B13 = TIM1_CH1N: PWM+DMA instead of bitbang.
 # Bitbang uses NOP-timed GPIO toggling that runs from Flash; on APM32F103CBT6
 # the flash wait-state behaviour stretches the 0-bit high time past WS2812's

@@ -20,6 +20,40 @@ UF2 拖入即刷。三种进入方式：
 |---|---|---|
 | VID | `0x4E08` | `0x4E08` |
 | PID | `0x4E0A` | `0x4E0B` |
+| 产品名字符串 | `HID Keyboard Device` | 由 CherryUF2 决定 |
+
+USB 产品名故意不叫键盘名：手机游戏王座（猎影 / 暗影）和部分 OTG
+主机按产品名匹配标准键盘，`config.h` 里的 `#define PRODUCT` 请勿改回。
+VIA 读到的键盘名仍然是 `mao_gamerst_uf2`，不受影响。
+
+## 王座 / 手机外接兼容
+
+`gamerst.c` 提供主机兼容门控，出厂状态：
+
+- **6KRO boot protocol**：`force_nkro` 已去掉，全键无冲默认关
+- **鼠标键编译期关闭**：`mousekey: false`。描述符里只要挂 Mouse collection，
+  王座/安卓就把整把键绑到鼠标通路，表现是“按键变成光标移动”。
+  这一项不能只靠运行时开关，必须编译期砍掉
+- **多媒体 / 系统键默认开**：旋钮音量开箱可用。Consumer 和 System
+  各占独立 report id，不会污染键盘报文；万一某个主机闹脾气，VIA 里可关
+- **console / command 关闭**：不占额外接口，手机侧枚举更干净
+- **`USB_SUSPEND_WAKEUP_DELAY 500`**：慢速 hub 重新挂载用
+- **出厂亮度 100**（上限仍是 `max_brightness: 180`）：王座的 USB-A 口
+  和鼠标分电流，35 颗 WS2812 全白容易把口拉崩
+
+VIA “Keyboard” 页的开关（写 EEPROM，掉电保留）：
+
+| value id | 作用 | 出厂 |
+|---|---|---|
+| 1 | 恢复默认键位 | 按钮 |
+| 2 | 进入 bootloader | 按钮 |
+| 3 | NKRO | 关 |
+| 5 | 多媒体 / 系统键 | 开 |
+
+value id 4 是 GamerLite 的鼠标键开关，本板保留空洞不复用，方便两边对表。
+
+改完这几项需要重刷，老用户 EEPROM 里没有新的 magic 值，首次启动会自动
+写成出厂默认，不会继承旧的 NKRO 状态。
 
 ## WS2812
 
@@ -57,7 +91,7 @@ UF2 拖入即刷。三种进入方式：
 | FN+ALT+D / C | 色相 +/- | |
 | FN+ALT+F / V | 亮度 +/- | |
 | FN+ALT+G / B | 灯效速度 +/- | |
-| FN+ALT+Tab | 全键无冲 开/关 | 默认开 |
+| FN+ALT+Tab | 全键无冲 开/关 | 默认关（6KRO） |
 | FN+ALT+ESC | 恢复出厂 | |
 | FN+ALT+Mute | 进入 bootloader | Mute = 旋钮按下 或 F5 |
 

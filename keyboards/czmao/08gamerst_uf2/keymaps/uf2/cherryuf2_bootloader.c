@@ -12,10 +12,17 @@
  *     reset to enter the UF2 bootloader (QK_BOOT keycode path).
  *
  * The Cathouse one-key upgrade flow sends VIA command id 0x0b
- * (id_bootloader_jump) over raw HID. QMK's via.c does not dispatch that id
- * centrally, so we handle it here by overriding the weak via_command_kb()
- * hook, which lets the frontend jump into the bootloader without a physical
- * double-tap.
+ * (id_bootloader_jump) over raw HID. It lands here through the weak
+ * via_command_kb() hook, so the frontend can jump into the bootloader without
+ * a physical double-tap.
+ *
+ * Interrupts are masked before the store as insurance: the word lives at the
+ * top of SRAM, and this app links with the platform STM32F103xB_uf2boot.ld
+ * whose ram0 is the full 20K, so nothing reserves it. The ChibiOS main stack
+ * currently starts low (the vector table's initial SP is 0x20000400), so no
+ * ISR pushes onto 0x20004FFC today -- but if a future ld/board change moves
+ * the stack to the top, a tick landing between the store and the reset would
+ * silently eat the magic and the boot would skip DFU. Masking costs nothing.
  */
 
 #include "bootloader.h"
@@ -26,8 +33,11 @@
 #define CHERRYUF2_DBL_TAP_MAGIC 0xf01669efUL
 
 void bootloader_jump(void) {
+    __disable_irq();
     CHERRYUF2_DBL_TAP_REG = CHERRYUF2_DBL_TAP_MAGIC;
+    __DSB();
     NVIC_SystemReset();
+    while (1) {}
 }
 
 void mcu_reset(void) {

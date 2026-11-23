@@ -14,6 +14,21 @@ UF2 拖入即刷。三种进入方式：
 首次刷入 bootloader：用 ST-Link 把 `uf2boot_czm_apm32f103.hex` 烧到
 `0x08000000`，App 起始 `0x08004000`，UF2 family id `0x5ee21072`。
 
+## 驱动页升级（没有一键升级）
+
+CherryUF2 只有一个 USB 大容量存储盘，**没有任何可写的 HID 接口**
+（扫过 `uf2boot_czm_apm32f103.hex`：无 vendor usage page `0xFF60`）。
+浏览器写不了 U 盘，所以本板不可能做 DC87 那种一键刷写。
+
+- `configs.json` 里**不要**给 `0x4E08:0x4E0A` 写 `firmwareTransport: "hid"`，
+  写了驱动页就会去等一个不存在的 HID 设备，表现是“看得到新版本但 update 不动”
+- 驱动页走下载 + 进 bootloader + 拖文件那条流程
+- “进 bootloader”按钮发的是 VIA 命令 `0x0B`。本仓库的 `quantum/via.c`
+  原本没有这个 case（回 `id_unhandled`，按钮点了没反应），已补上
+  `reset_keyboard()`。**1.0.5 及以后才响**；更早的固件请用板载 RESET 双击
+  或 Bootmagic
+- 真要一键升级只能重做 bootloader，已出厂的板子救不回来
+
 ## USB 识别
 
 | | App | Bootloader |

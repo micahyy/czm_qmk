@@ -37,6 +37,10 @@
 #include "version.h" // for QMK_BUILDDATE used in EEPROM magic
 #include "nvm_via.h"
 
+/* via.c is deliberately kept out of the quantum.h include graph, so name the
+   reset helper used by id_bootloader_jump here instead. */
+extern void reset_keyboard(void);
+
 #if defined(SECURE_ENABLE)
 #    include "secure.h"
 #endif
@@ -422,6 +426,17 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             break;
         }
 #endif
+        /* VIA advertises this command (id 0x0B) but this QMK tree never
+           implemented it, so a driver page asking the board to restart into
+           its bootloader silently got id_unhandled. Reply first so the host is
+           not left waiting on a device that is about to vanish. */
+        case id_bootloader_jump: {
+            wait_ms(100);
+            raw_hid_send(data, length);
+            wait_ms(100);
+            reset_keyboard();
+            break;
+        }
         case id_dynamic_keymap_macro_get_count: {
             command_data[0] = dynamic_keymap_macro_get_count();
             break;

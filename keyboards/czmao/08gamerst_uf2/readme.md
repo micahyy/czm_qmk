@@ -47,8 +47,11 @@ App 起始 `0x08004000`，UF2 family id `0x5ee21072`。
 定义文件：`CathouseAPP/public/definitions/v3/1309167114.json`（vid 0x4E08 × 65536 + pid 0x4E0A）。
 驱动按 `CathouseAPP/driver_plan.md` 的规则分流 definition 的顶层 `menus`：`Title === 'Lighting'`
 的进一级“灯光控制”，其余全部进一级“功能配置”并各自成为一个二级标签。所以本板那个
-菜单的 label 直接写成 **“系统功能”**，不再嵌套 `Settings`（旧版 `Keyboard` > `Settings` 会把
-英文原样显示、也多一层，不符合规划表的“功能配置 > 系统功能”）。当前四项对应 VIA 临时命令
+菜单的 label 写成 **“系统功能”**（旧版的 `Keyboard` 不在 i18n 表里，会英文原样显示）。
+**但 `content` 必须保留“分组”这一层**：`系统功能 > 常规 > 控件`，不能把控件直接挂在菜单下——
+驱动 `configure-panes/custom/menu-generator.tsx` 的 `submenuGenerator` 只要见到带 `label` 的子项就当分组，
+会把 toggle 的 `content:["id_czm_nkro_kb",0,3]` 拿去 flatMap，直接抛错而整个页面空掉（已踩过）。
+完整写法见 `CathouseAPP/VIA_JSON定义编写指引.md` 第 3、4 节。当前四项对应 VIA 临时命令
 的第 2 字节：恢复默认键位 `1`、进入烧录模式 `2`、全键无冲 `3`、媒体键 `5`。只放固件真正实现
 的开关：规划表里的 Mac 模式 / HHKB（Caps-Ctrl 互换）/ 鼠标功能本板没对应实现，所以不列
 （鼠标 collection 已从描述符里移除，放了也是个空开关）。“功能配置 > 升级”是驱动自己注入的，
